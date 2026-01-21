@@ -23,33 +23,6 @@ async def trigger_ingestion(db: AsyncSession = Depends(get_db)):
     service = IngestionService(db)
     try:
         run = await service.run_ingestion()
-        
-        # Auto-generate AI briefs for major countries after ingestion
-        from app.services.ai.brief_generator import BriefGenerator, BriefRequest
-        from app.services.rag.chat_provider import OpenAIChatProvider
-        from app.settings import settings
-        from datetime import datetime, timedelta
-        
-        try:
-            chat_provider = OpenAIChatProvider(api_key=settings.OPENAI_API_KEY)
-            generator = BriefGenerator(chat_provider=chat_provider)
-            major_countries = ['US', 'GB', 'DE', 'CN', 'IN', 'AU']
-            
-            for country_code in major_countries:
-                try:
-                    brief_request = BriefRequest(
-                        country_code=country_code,
-                        days=7,
-                        max_articles=15
-                    )
-                    await generator.generate_brief(db=db, request=brief_request)
-                except Exception as e:
-                    # Log but don't fail the whole ingestion
-                    print(f"Failed to generate brief for {country_code}: {str(e)}")
-        except Exception as e:
-            # If OpenAI setup fails, just skip brief generation
-            print(f"Brief generation skipped: {str(e)}")
-        
         return IngestionRunResponse(
             id=run.id,
             started_at=run.started_at,

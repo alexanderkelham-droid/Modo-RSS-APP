@@ -98,11 +98,31 @@ async def get_latest_brief(
     
     Returns cached brief if generated within last 24 hours, otherwise generates new one.
     """
+    from datetime import datetime, timedelta
+    from sqlalchemy import select, desc
+    from app.db.models import Brief
+    
     try:
-        from datetime import datetime
+        # Check for cached brief (less than 24 hours old)
+        result = await db.execute(
+            select(Brief)
+            .where(Brief.country_code == country_code)
+            .where(Brief.generated_at > datetime.utcnow() - timedelta(hours=24))
+            .order_by(desc(Brief.generated_at))
+            .limit(1)
+        )
+        cached_brief = result.scalar_one_or_none()
         
-        # For now, just generate a new brief each time
-        # TODO: Add caching/storage in database
+        if cached_brief:
+            return {
+                "content": cached_brief.content,
+                "generated_at": cached_brief.generated_at.isoformat(),
+                "article_count": cached_brief.article_count,
+                "country_code": country_code,
+                "cached": True,
+            }
+        
+        # Generate new brief
         brief_request = BriefRequest(
             country_code=country_code,
             days=7,
@@ -111,11 +131,23 @@ async def get_latest_brief(
         
         response = await generator.generate_brief(db=db, request=brief_request)
         
+        # Save to database
+        new_brief = Brief(
+            country_code=country_code,
+            content=response.brief,
+            article_count=response.article_count,
+            days_range=7,
+            generated_at=datetime.utcnow(),
+        )
+        db.add(new_brief)
+        await db.commit()
+        
         return {
             "content": response.brief,
-            "generated_at": datetime.now().isoformat(),
+            "generated_at": datetime.utcnow().isoformat(),
             "article_count": response.article_count,
             "country_code": country_code,
+            "cached": False,
         }
     except Exception as e:
         # Return empty if generation fails

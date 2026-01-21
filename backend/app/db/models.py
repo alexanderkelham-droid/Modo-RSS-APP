@@ -110,6 +110,20 @@ class IngestionRun(Base):
     def __repr__(self):
         return f"<IngestionRun(id={self.id}, status='{self.status}', started_at={self.started_at})>"
 
+class Brief(Base):
+    """Cached AI-generated briefs for countries."""
+    
+    __tablename__ = "briefs"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    country_code = Column(String(2), nullable=False, index=True)
+    content = Column(Text, nullable=False)
+    article_count = Column(Integer, nullable=False, default=0)
+    generated_at = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
+    days_range = Column(Integer, nullable=False, default=7)
+    
+    def __repr__(self):
+        return f"<Brief(id={self.id}, country='{self.country_code}', generated_at={self.generated_at})>"
 
 # Create indexes
 Index("idx_articles_published_at", Article.published_at)
