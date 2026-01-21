@@ -51,13 +51,19 @@ export default function CountryBriefsPage() {
           <h2 className="font-bold text-gray-900 text-lg mb-3">AI Daily Briefing</h2>
           {brief ? (
             <div className="prose prose-sm max-w-none">
-              <div className="text-gray-600 whitespace-pre-wrap">{brief.content}</div>
-              <div className="mt-4 text-xs text-gray-400">
-                Generated {new Date(brief.generated_at).toLocaleString()}
-              </div>
+              {brief.content ? (
+                <>
+                  <div className="text-gray-600 whitespace-pre-wrap">{brief.content}</div>
+                  <div className="mt-4 text-xs text-gray-400">
+                    Generated: {brief.generated_at || 'Just now'} • {brief.article_count || 0} articles analyzed
+                  </div>
+                </>
+              ) : (
+                <p className="text-gray-500 text-sm">Loading brief... (this may take 10-15 seconds)</p>
+              )}
             </div>
           ) : (
-            <p className="text-gray-500 text-sm">No briefing available. Briefings are automatically generated after ingestion.</p>
+            <p className="text-gray-500 text-sm">Loading brief...</p>
           )}
         </div>
 

@@ -99,6 +99,8 @@ async def get_latest_brief(
     Returns cached brief if generated within last 24 hours, otherwise generates new one.
     """
     try:
+        from datetime import datetime
+        
         # For now, just generate a new brief each time
         # TODO: Add caching/storage in database
         brief_request = BriefRequest(
@@ -111,15 +113,17 @@ async def get_latest_brief(
         
         return {
             "content": response.brief,
-            "generated_at": response.date_range["end"],
+            "generated_at": datetime.now().isoformat(),
             "article_count": response.article_count,
             "country_code": country_code,
         }
     except Exception as e:
         # Return empty if generation fails
+        print(f"Brief generation failed: {str(e)}")
         return {
             "content": None,
             "generated_at": None,
             "article_count": 0,
             "country_code": country_code,
+            "error": str(e),
         }
