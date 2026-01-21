@@ -7,17 +7,30 @@ const fetcher = (url: string) => fetch(url).then((res) => res.json())
 
 export default function CountryBriefsPage() {
   const [selectedCountry, setSelectedCountry] = useState('US')
+  const [loadingBrief, setLoadingBrief] = useState(false)
+  const [brief, setBrief] = useState<any>(null)
   
   const { data: stories } = useSWR(
     `${process.env.NEXT_PUBLIC_API_URL}/articles/top-stories?country=${selectedCountry}&days=7&limit=20`,
     fetcher
   )
 
-  const { data: brief } = useSWR(
-    `${process.env.NEXT_PUBLIC_API_URL}/briefs/latest?country_code=${selectedCountry}`,
-    fetcher,
-    { refreshInterval: 60000 }
-  )
+  const generateBrief = async () => {
+    setLoadingBrief(true)
+    setBrief(null)
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/briefs/latest?country_code=${selectedCountry}`
+      )
+      const data = await response.json()
+      setBrief(data)
+    } catch (error) {
+      console.error('Failed to generate brief:', error)
+      setBrief({ content: null, error: 'Failed to generate brief' })
+    } finally {
+      setLoadingBrief(false)
+    }
+  }
 
   return (
     <div className="h-full overflow-auto">
@@ -48,22 +61,36 @@ export default function CountryBriefsPage() {
       <div className="p-5">
         {/* AI Daily Briefing */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-4">
-          <h2 className="font-bold text-gray-900 text-lg mb-3">AI Daily Briefing</h2>
-          {brief ? (
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-bold text-gray-900 text-lg">AI Daily Briefing</h2>
+            <button
+              onClick={generateBrief}
+              disabled={loadingBrief}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-sm font-medium"
+            >
+              {loadingBrief ? 'Generating...' : 'Generate Brief'}
+            </button>
+          </div>
+          
+          {loadingBrief ? (
+            <div className="text-center py-8">
+              <div className="animate-pulse text-gray-500">
+                Analyzing {selectedCountry} articles with AI... (10-15 seconds)
+              </div>
+            </div>
+          ) : brief?.content ? (
             <div className="prose prose-sm max-w-none">
-              {brief.content ? (
-                <>
-                  <div className="text-gray-600 whitespace-pre-wrap">{brief.content}</div>
-                  <div className="mt-4 text-xs text-gray-400">
-                    Generated: {brief.generated_at || 'Just now'} • {brief.article_count || 0} articles analyzed
-                  </div>
-                </>
-              ) : (
-                <p className="text-gray-500 text-sm">Loading brief... (this may take 10-15 seconds)</p>
-              )}
+              <div className="text-gray-600 whitespace-pre-wrap">{brief.content}</div>
+              <div className="mt-4 text-xs text-gray-400">
+                Generated: {brief.generated_at || 'Just now'} • {brief.article_count || 0} articles analyzed
+              </div>
+            </div>
+          ) : brief?.error ? (
+            <div className="text-red-600 text-sm">
+              {brief.error}
             </div>
           ) : (
-            <p className="text-gray-500 text-sm">Loading brief...</p>
+            <p className="text-gray-500 text-sm">Click "Generate Brief" to create an AI-powered summary of recent {selectedCountry} energy developments.</p>
           )}
         </div>
 
