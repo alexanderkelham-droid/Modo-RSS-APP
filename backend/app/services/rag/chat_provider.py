@@ -75,7 +75,7 @@ class OpenAIChatProvider(ChatProvider):
         Returns:
             Generated response text
         """
-        async with httpx.AsyncClient(timeout=120.0, http2=False, verify=False) as client:
+        async with httpx.AsyncClient(timeout=120.0) as client:
             response = await client.post(
                 "https://api.openai.com/v1/chat/completions",
                 headers={
