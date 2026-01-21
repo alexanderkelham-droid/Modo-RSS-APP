@@ -85,3 +85,41 @@ async def generate_brief(
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/latest")
+async def get_latest_brief(
+    country_code: str,
+    db: AsyncSession = Depends(get_db),
+    generator: BriefGenerator = Depends(get_brief_generator),
+):
+    """
+    Get or generate the latest brief for a country.
+    
+    Returns cached brief if generated within last 24 hours, otherwise generates new one.
+    """
+    try:
+        # For now, just generate a new brief each time
+        # TODO: Add caching/storage in database
+        brief_request = BriefRequest(
+            country_code=country_code,
+            days=7,
+            max_articles=15,
+        )
+        
+        response = await generator.generate_brief(db=db, request=brief_request)
+        
+        return {
+            "content": response.brief,
+            "generated_at": response.date_range["end"],
+            "article_count": response.article_count,
+            "country_code": country_code,
+        }
+    except Exception as e:
+        # Return empty if generation fails
+        return {
+            "content": None,
+            "generated_at": None,
+            "article_count": 0,
+            "country_code": country_code,
+        }
