@@ -21,6 +21,7 @@ class ArticleResponse(BaseModel):
     language: Optional[str]
     country_codes: Optional[List[str]]
     topic_tags: Optional[List[str]]
+    image_url: Optional[str] = None
     
     class Config:
         from_attributes = True
@@ -36,6 +37,7 @@ class ArticleListItem(BaseModel):
     country_codes: Optional[List[str]]
     topic_tags: Optional[List[str]]
     summary: Optional[str] = Field(None, description="First 200 chars of content")
+    image_url: Optional[str] = Field(None, description="Article featured image URL")
     
     class Config:
         from_attributes = True
@@ -61,6 +63,7 @@ class TopStoryResponse(BaseModel):
     country_codes: Optional[List[str]]
     topic_tags: Optional[List[str]]
     summary: Optional[str]
+    image_url: Optional[str] = None
     score: float = Field(..., description="Ranking score")
     
     class Config:

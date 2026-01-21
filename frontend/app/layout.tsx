@@ -1,12 +1,13 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
+import Sidebar from '@/components/Sidebar'
 
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Energy Transition Intelligence',
-  description: 'News aggregation and analysis for the energy transition',
+  title: 'EnergyTracker - Market Intelligence',
+  description: 'Real-time insights on the global energy transition',
 }
 
 export default function RootLayout({
@@ -16,7 +17,14 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={inter.className}>{children}</body>
+      <body className={inter.className}>
+        <div className="flex h-screen bg-gray-50">
+          <Sidebar />
+          <main className="flex-1 overflow-auto">
+            {children}
+          </main>
+        </div>
+      </body>
     </html>
   )
 }

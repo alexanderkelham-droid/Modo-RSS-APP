@@ -51,6 +51,7 @@ async def list_articles(
         Article.country_codes,
         Article.topic_tags,
         Article.content_text,
+        Article.article_metadata,
         Source.name.label("source_name"),
     ).join(
         Source, Article.source_id == Source.id
@@ -101,6 +102,11 @@ async def list_articles(
         if row.content_text:
             summary = row.content_text[:200] + "..." if len(row.content_text) > 200 else row.content_text
         
+        # Extract image URL from metadata
+        image_url = None
+        if row.article_metadata and isinstance(row.article_metadata, dict):
+            image_url = row.article_metadata.get('image_url')
+        
         items.append(ArticleListItem(
             id=row.id,
             title=row.title,
@@ -110,6 +116,7 @@ async def list_articles(
             country_codes=row.country_codes,
             topic_tags=row.topic_tags,
             summary=summary,
+            image_url=image_url,
         ))
     
     # Calculate pagination metadata
@@ -154,6 +161,7 @@ async def get_top_stories(
         Article.country_codes,
         Article.topic_tags,
         Article.content_text,
+        Article.article_metadata,
         Source.name.label("source_name"),
     ).join(
         Source, Article.source_id == Source.id
@@ -224,6 +232,11 @@ async def get_top_stories(
         if row.content_text:
             summary = row.content_text[:200] + "..." if len(row.content_text) > 200 else row.content_text
         
+        # Extract image URL from metadata
+        image_url = None
+        if row.article_metadata and isinstance(row.article_metadata, dict):
+            image_url = row.article_metadata.get('image_url')
+        
         scored_articles.append({
             "id": row.id,
             "title": row.title,
@@ -233,6 +246,7 @@ async def get_top_stories(
             "country_codes": row.country_codes,
             "topic_tags": row.topic_tags,
             "summary": summary,
+            "image_url": image_url,
             "score": round(score, 2),
         })
     
@@ -248,3 +262,45 @@ async def get_top_stories(
         country=country,
         days=days,
     )
+
+
+@router.delete("/cleanup/google-news", status_code=200)
+async def cleanup_google_news_articles(db: AsyncSession = Depends(get_db)):
+    """
+    Delete all Google News articles from the database.
+    """
+    # Delete articles where URL contains news.google.com
+    result = await db.execute(
+        text("DELETE FROM articles WHERE url LIKE '%news.google.com%'")
+    )
+    await db.commit()
+    
+    deleted_count = result.rowcount
+    return {"deleted": deleted_count, "message": f"Deleted {deleted_count} Google News articles"}
+
+
+@router.delete("/cleanup/crossref", status_code=200)
+async def cleanup_crossref_papers(db: AsyncSession = Depends(get_db)):
+    """
+    Delete all CrossRef papers from the database.
+    """
+    result = await db.execute(
+        text("DELETE FROM articles WHERE source_id = 43")
+    )
+    await db.commit()
+    
+    deleted_count = result.rowcount
+    return {"deleted": deleted_count, "message": f"Deleted {deleted_count} CrossRef papers"}
+
+@router.delete("/cleanup/all", status_code=200)
+async def cleanup_all_articles(db: AsyncSession = Depends(get_db)):
+    """
+    Delete ALL articles from the database.
+    """
+    result = await db.execute(
+        text("DELETE FROM articles")
+    )
+    await db.commit()
+    
+    deleted_count = result.rowcount
+    return {"deleted": deleted_count, "message": f"Deleted {deleted_count} articles"}

@@ -59,8 +59,13 @@ class RSSFetcher:
             FeedFetchError: If fetch fails after retries
         """
         headers = {
-            "User-Agent": self.user_agent,
-            "Accept": "application/rss+xml, application/xml, text/xml, */*",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+            "Accept": "application/rss+xml, application/xml, text/xml, application/atom+xml, */*",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Accept-Encoding": "gzip, deflate, br",
+            "Connection": "keep-alive",
+            "Upgrade-Insecure-Requests": "1",
+            "Cache-Control": "max-age=0",
         }
         
         try:

@@ -51,12 +51,22 @@ class ContentExtractor:
         try:
             headers = {
                 "User-Agent": self.user_agent,
+                "Accept": "text/html,application/xhtml+xml",
+                "Accept-Language": "en-US,en;q=0.9",
             }
             
-            async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
-                response = await client.head(url, headers=headers)
-                # The final URL after all redirects
-                return str(response.url)
+            # Use GET instead of HEAD to ensure redirects work properly
+            async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
+                response = await client.get(url, headers=headers)
+                final_url = str(response.url)
+                
+                # Skip consent pages
+                if "consent.google.com" in final_url or final_url == url:
+                    print(f"Failed to resolve beyond consent/redirect: {url}")
+                    return url
+                
+                print(f"Successfully resolved: {url[:60]}... -> {final_url[:60]}...")
+                return final_url
         except Exception as e:
             print(f"Failed to resolve Google News URL {url}: {e}")
             # Return original URL as fallback
@@ -84,12 +94,16 @@ class ContentExtractor:
         resolved_url = await self.resolve_google_news_url(url)
         
         headers = {
-            "User-Agent": self.user_agent,
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
             "Accept-Language": "en-US,en;q=0.9",
-            "Accept-Encoding": "gzip, deflate",
+            "Accept-Encoding": "gzip, deflate, br",
             "Connection": "keep-alive",
-            "Referer": "https://news.google.com/",  # Some sites require this
+            "Upgrade-Insecure-Requests": "1",
+            "Cache-Control": "max-age=0",
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Site": "none",
         }
         
         try:
@@ -191,6 +205,50 @@ class ContentExtractor:
             print(f"BeautifulSoup extraction failed: {e}")
             return None
     
+    def extract_image_url(self, html: str) -> Optional[str]:
+        """
+        Extract featured image URL from article HTML.
+        Looks for Open Graph image, Twitter Card image, or first large image.
+        
+        Args:
+            html: Raw HTML content
+            
+        Returns:
+            Image URL or None if no suitable image found
+        """
+        try:
+            soup = BeautifulSoup(html, 'lxml')
+            
+            # Try Open Graph image first
+            og_image = soup.find('meta', property='og:image')
+            if og_image and og_image.get('content'):
+                return og_image['content']
+            
+            # Try Twitter Card image
+            twitter_image = soup.find('meta', attrs={'name': 'twitter:image'})
+            if twitter_image and twitter_image.get('content'):
+                return twitter_image['content']
+            
+            # Try article:image meta tag
+            article_image = soup.find('meta', property='article:image')
+            if article_image and article_image.get('content'):
+                return article_image['content']
+            
+            # Fallback: find first large image in article content
+            images = soup.find_all('img')
+            for img in images:
+                src = img.get('src') or img.get('data-src')
+                if src and not any(skip in src.lower() for skip in ['logo', 'icon', 'avatar', 'ad']):
+                    # Only return if it looks like a full URL
+                    if src.startswith('http://') or src.startswith('https://'):
+                        return src
+            
+            return None
+        
+        except Exception as e:
+            print(f"Image extraction failed: {e}")
+            return None
+    
     def extract_content(self, html: str) -> Optional[str]:
         """
         Extract article content with readability fallback to BeautifulSoup.
@@ -238,15 +296,15 @@ class ContentExtractor:
             print(f"Unexpected error in language detection: {e}")
             return None
     
-    async def extract_article(self, url: str) -> Tuple[Optional[str], Optional[str]]:
+    async def extract_article(self, url: str) -> Tuple[Optional[str], Optional[str], Optional[str]]:
         """
-        Fetch and extract article content with language detection.
+        Fetch and extract article content with language detection and image URL.
         
         Args:
             url: Article URL
             
         Returns:
-            Tuple of (content_text, language_code)
+            Tuple of (content_text, language_code, image_url)
             
         Raises:
             ContentExtractionError: If fetch fails
@@ -257,9 +315,12 @@ class ContentExtractor:
         # Extract content
         content = self.extract_content(html)
         
+        # Extract image URL
+        image_url = self.extract_image_url(html)
+        
         # Detect language
         language = None
         if content:
             language = self.detect_language(content)
         
-        return content, language
+        return content, language, image_url
