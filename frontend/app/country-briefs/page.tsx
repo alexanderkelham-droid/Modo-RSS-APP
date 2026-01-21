@@ -13,6 +13,12 @@ export default function CountryBriefsPage() {
     fetcher
   )
 
+  const { data: brief } = useSWR(
+    `${process.env.NEXT_PUBLIC_API_URL}/briefs/latest?country_code=${selectedCountry}`,
+    fetcher,
+    { refreshInterval: 60000 }
+  )
+
   return (
     <div className="h-full overflow-auto">
       {/* Header */}
@@ -40,66 +46,19 @@ export default function CountryBriefsPage() {
       </div>
 
       <div className="p-5">
-        <div className="grid grid-cols-2 gap-4">
-          {/* AI Daily Briefing */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-            <h2 className="font-bold text-gray-900 text-sm mb-3">AI Daily Briefing</h2>
-            <p className="text-gray-500 text-sm">No briefing generated for today.</p>
-          </div>
-
-          {/* Regional Coverage */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-            <h2 className="font-bold text-gray-900 text-sm mb-3">Regional Coverage</h2>
-            <div className="grid grid-cols-2 gap-6">
-              {stories?.items?.slice(0, 2).map((article: any) => (
-                <div key={article.id} className="space-y-3">
-                  <div className="h-32 bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg flex items-center justify-center">
-                    <span className="text-5xl">⚡</span>
-                  </div>
-                  <div>
-                    <div className="text-xs font-bold text-orange-500 uppercase mb-1">
-                      {article.source_name}
-                    </div>
-                    <h3 className="text-sm font-bold text-gray-900 line-clamp-2">
-                      {article.title}
-                    </h3>
-                    <div className="flex gap-2 mt-2">
-                      {article.country_codes?.map((code: string) => (
-                        <span
-                          key={code}
-                          className="px-2 py-1 bg-gray-100 rounded text-xs"
-                        >
-                          {code}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              ))}
+        {/* AI Daily Briefing */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-4">
+          <h2 className="font-bold text-gray-900 text-lg mb-3">AI Daily Briefing</h2>
+          {brief ? (
+            <div className="prose prose-sm max-w-none">
+              <div className="text-gray-600 whitespace-pre-wrap">{brief.content}</div>
+              <div className="mt-4 text-xs text-gray-400">
+                Generated {new Date(brief.generated_at).toLocaleString()}
+              </div>
             </div>
-          </div>
-        </div>
-
-        {/* Regional Data */}
-        <div className="mt-4 bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-          <h2 className="text-blue-600 font-bold text-sm mb-3">Regional Data</h2>
-          <p className="text-gray-500 text-xs mb-4">
-            Comprehensive datasets for {selectedCountry}.
-          </p>
-          <div className="grid grid-cols-3 gap-4">
-            <div>
-              <div className="text-xs text-gray-600 mb-1">Renewable Share</div>
-              <div className="text-xl font-bold">24.5%</div>
-            </div>
-            <div>
-              <div className="text-xs text-gray-600 mb-1">Capacity Added (YTD)</div>
-              <div className="text-xl font-bold">12 GW</div>
-            </div>
-            <div>
-              <div className="text-xs text-gray-600 mb-1">Active Projects</div>
-              <div className="text-xl font-bold">142</div>
-            </div>
-          </div>
+          ) : (
+            <p className="text-gray-500 text-sm">No briefing available. Briefings are automatically generated after ingestion.</p>
+          )}
         </div>
 
         {/* Articles List */}

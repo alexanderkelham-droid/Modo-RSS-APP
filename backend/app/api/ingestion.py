@@ -23,6 +23,19 @@ async def trigger_ingestion(db: AsyncSession = Depends(get_db)):
     service = IngestionService(db)
     try:
         run = await service.run_ingestion()
+        
+        # Auto-generate AI briefs for major countries after ingestion
+        from app.services.briefs import BriefService
+        brief_service = BriefService(db)
+        major_countries = ['US', 'GB', 'DE', 'CN', 'IN', 'AU']
+        
+        for country_code in major_countries:
+            try:
+                await brief_service.generate_brief(country_code=country_code, days=7)
+            except Exception as e:
+                # Log but don't fail the whole ingestion
+                print(f"Failed to generate brief for {country_code}: {str(e)}")
+        
         return IngestionRunResponse(
             id=run.id,
             started_at=run.started_at,
