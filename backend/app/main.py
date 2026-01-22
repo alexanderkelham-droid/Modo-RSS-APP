@@ -5,7 +5,7 @@ FastAPI application entry point for ETI backend.
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import ingestion, chat, articles, countries, sources, briefs
+from app.api import ingestion, chat, articles, countries, sources, briefs, stats
 
 app = FastAPI(
     title="Energy Transition Intelligence API",
@@ -29,6 +29,7 @@ app.include_router(articles.router)
 app.include_router(countries.router)
 app.include_router(sources.router)
 app.include_router(briefs.router)
+app.include_router(stats.router)
 
 
 @app.get("/")

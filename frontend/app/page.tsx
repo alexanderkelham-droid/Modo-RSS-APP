@@ -28,6 +28,16 @@ export default function Dashboard() {
     `${process.env.NEXT_PUBLIC_API_URL}/countries?days=${days}`,
     fetcher
   )
+  
+  const { data: activityData } = useSWR(
+    `${process.env.NEXT_PUBLIC_API_URL}/stats/activity?days=${days}&country_code=${selectedCountry}`,
+    fetcher
+  )
+  
+  const { data: topicBreakdown } = useSWR(
+    `${process.env.NEXT_PUBLIC_API_URL}/stats/topic-breakdown?days=${days}&country_code=${selectedCountry}`,
+    fetcher
+  )
 
   const featuredStory = stories?.items?.[0]
 
@@ -181,28 +191,80 @@ export default function Dashboard() {
           <div className="space-y-6">
             {/* Activity Trend */}
             <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200">
-              <h3 className="font-bold text-gray-900 text-sm mb-3">Activity Trend</h3>
-              <div className="h-32 bg-gradient-to-br from-blue-100 to-blue-200 rounded-lg flex items-end justify-center px-4 pb-4">
-                <svg className="w-full h-20" viewBox="0 0 200 50">
-                  <polyline
-                    points="0,40 30,35 60,25 90,30 120,15 150,20 180,10 200,5"
-                    fill="none"
-                    stroke="#2563eb"
-                    strokeWidth="2"
-                  />
-                  <polyline
-                    points="0,40 30,35 60,25 90,30 120,15 150,20 180,10 200,5 200,50 0,50"
-                    fill="rgba(37, 99, 235, 0.2)"
-                  />
-                </svg>
+              <h3 className="font-bold text-gray-900 text-sm mb-3">
+                Activity Trend
+                <span className="text-xs text-gray-500 font-normal ml-2">
+                  ({activityData?.total || 0} articles)
+                </span>
+              </h3>
+              <div className="h-32 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg flex items-end justify-center px-3 pb-3">
+                {activityData?.data && activityData.data.length > 0 ? (
+                  <svg className="w-full h-full" viewBox="0 0 200 100" preserveAspectRatio="none">
+                    {/* Create bars for each day */}
+                    {activityData.data.map((item: any, index: number) => {
+                      const maxCount = Math.max(...activityData.data.map((d: any) => d.count))
+                      const barHeight = (item.count / maxCount) * 85
+                      const barWidth = 180 / activityData.data.length
+                      const x = 10 + (index * (180 / activityData.data.length))
+                      
+                      return (
+                        <g key={index}>
+                          <rect
+                            x={x}
+                            y={95 - barHeight}
+                            width={barWidth * 0.7}
+                            height={barHeight}
+                            fill="#2563eb"
+                            opacity="0.8"
+                            rx="2"
+                          />
+                          <text
+                            x={x + (barWidth * 0.35)}
+                            y="98"
+                            fontSize="8"
+                            fill="#6b7280"
+                            textAnchor="middle"
+                          >
+                            {item.count}
+                          </text>
+                        </g>
+                      )
+                    })}
+                  </svg>
+                ) : (
+                  <div className="text-gray-400 text-xs">Loading...</div>
+                )}
               </div>
-              <div className="mt-4 flex justify-between text-xs text-gray-500">
-                <span>Tue</span>
-                <span>Wed</span>
-                <span>Thu</span>
-                <span>Fri</span>
-                <span>Sat</span>
-                <span>Sun</span>
+              <div className="mt-3 flex justify-between text-xs text-gray-500">
+                {activityData?.data?.slice(0, 7).map((item: any, index: number) => (
+                  <span key={index}>
+                    {new Date(item.date).toLocaleDateString('en-US', { weekday: 'short' })}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* Topic Breakdown */}
+            <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200">
+              <h3 className="font-bold text-gray-900 text-sm mb-3">Top Topics</h3>
+              <div className="space-y-2">
+                {topicBreakdown?.topics?.slice(0, 5).map((topic: any) => {
+                  const percentage = (topic.count / topicBreakdown.total) * 100
+                  return (
+                    <div key={topic.topic}>
+                      <div className="flex justify-between text-xs mb-1">
+                        <span className="text-gray-700 capitalize">{topic.topic.replace(/_/g, ' ')}</span>
+                        <span className="text-gray-500">{topic.count}</span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-1.5">
+                        <div
+                          className="bg-blue-600 h-1.5 rounded-full"
+                          style={{ width: `${percentage}%` }}
+                        />
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
             </div>
 
