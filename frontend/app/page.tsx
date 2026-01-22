@@ -9,7 +9,9 @@ const fetcher = (url: string) => fetch(url).then((res) => res.json())
 
 export default function Dashboard() {
   const [days, setDays] = useState(7)
-  const [selectedCountry, setSelectedCountry] = useState('DE')
+  const [selectedCountry, setSelectedCountry] = useState('US')
+  const [loadingBrief, setLoadingBrief] = useState(false)
+  const [brief, setBrief] = useState<any>(null)
 
   const { data: stories } = useSWR(
     `${process.env.NEXT_PUBLIC_API_URL}/articles/top-stories?country=${selectedCountry}&days=${days}&limit=1`,
@@ -29,6 +31,23 @@ export default function Dashboard() {
 
   const featuredStory = stories?.items?.[0]
 
+  const generateBrief = async () => {
+    setLoadingBrief(true)
+    setBrief(null)
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/briefs/latest?country_code=${selectedCountry}`
+      )
+      const data = await response.json()
+      setBrief(data)
+    } catch (error) {
+      console.error('Failed to generate brief:', error)
+      setBrief({ content: null, error: 'Failed to generate brief' })
+    } finally {
+      setLoadingBrief(false)
+    }
+  }
+
   return (
     <div className="h-full overflow-auto bg-gray-50">
       {/* Header */}
@@ -40,20 +59,76 @@ export default function Dashboard() {
               Real-time insights on the global energy transition.
             </p>
           </div>
-          <select
-            value={days}
-            onChange={(e) => setDays(Number(e.target.value))}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value={1}>Last 24 hours</option>
-            <option value={7}>Last 7 days</option>
-            <option value={30}>Last 30 days</option>
-          </select>
+          <div className="flex items-center gap-4">
+            <select
+              value={selectedCountry}
+              onChange={(e) => setSelectedCountry(e.target.value)}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="US">United States</option>
+              <option value="GB">United Kingdom</option>
+              <option value="DE">Germany</option>
+              <option value="CN">China</option>
+              <option value="IN">India</option>
+              <option value="AU">Australia</option>
+              <option value="IT">Italy</option>
+              <option value="PL">Poland</option>
+              <option value="ES">Spain</option>
+              <option value="NO">Norway</option>
+              <option value="JP">Japan</option>
+              <option value="KR">South Korea</option>
+              <option value="CA">Canada</option>
+            </select>
+            <select
+              value={days}
+              onChange={(e) => setDays(Number(e.target.value))}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value={1}>Last 24 hours</option>
+              <option value={7}>Last 7 days</option>
+              <option value={30}>Last 30 days</option>
+            </select>
+          </div>
         </div>
       </div>
 
       {/* Content */}
       <div className="p-8">
+        {/* AI Daily Briefing */}
+        <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-bold text-gray-900 text-lg">AI Daily Briefing</h2>
+            <button
+              onClick={generateBrief}
+              disabled={loadingBrief}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-sm font-medium"
+            >
+              {loadingBrief ? 'Generating...' : 'Generate Brief'}
+            </button>
+          </div>
+          
+          {loadingBrief ? (
+            <div className="text-center py-8">
+              <div className="animate-pulse text-gray-500">
+                Analyzing {selectedCountry} articles with AI... (10-15 seconds)
+              </div>
+            </div>
+          ) : brief?.content ? (
+            <div className="prose prose-sm max-w-none">
+              <div className="text-gray-600 whitespace-pre-wrap">{brief.content}</div>
+              <div className="mt-4 text-xs text-gray-400">
+                Generated: {brief.generated_at || 'Just now'} • {brief.article_count || 0} articles analyzed
+              </div>
+            </div>
+          ) : brief?.error ? (
+            <div className="text-red-600 text-sm">
+              {brief.error}
+            </div>
+          ) : (
+            <p className="text-gray-500 text-sm">Click \"Generate Brief\" to create an AI-powered summary of recent {selectedCountry} energy developments.</p>
+          )}
+        </div>
+        
         <div className="grid grid-cols-3 gap-6">
           {/* Featured Article */}
           <div className="col-span-2">

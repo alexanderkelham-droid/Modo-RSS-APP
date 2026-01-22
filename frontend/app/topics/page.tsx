@@ -7,13 +7,30 @@ import { formatTimeAgo, formatDate } from '@/utils/time'
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
 
 const topics = [
-  { id: 'all', label: 'All', color: 'bg-gray-900' },
-  { id: 'renewables', label: 'Renewable Energy', color: 'bg-green-600' },
-  { id: 'oil_gas', label: 'Oil & Gas', color: 'bg-gray-800' },
-  { id: 'nuclear', label: 'Nuclear', color: 'bg-orange-600' },
-  { id: 'ev_transport', label: 'Electric Vehicles', color: 'bg-blue-600' },
-  { id: 'policy', label: 'Energy Policy', color: 'bg-purple-600' },
-  { id: 'climate', label: 'Climate & Environment', color: 'bg-emerald-600' },
+  { id: 'all', label: 'All' },
+  { id: 'renewables', label: 'Renewable Energy' },
+  { id: 'oil_gas', label: 'Oil & Gas' },
+  { id: 'nuclear', label: 'Nuclear' },
+  { id: 'ev_transport', label: 'Electric Vehicles' },
+  { id: 'policy', label: 'Energy Policy' },
+  { id: 'climate', label: 'Climate & Environment' },
+]
+
+const countries = [
+  { code: 'all', name: 'All Countries' },
+  { code: 'US', name: 'United States' },
+  { code: 'GB', name: 'United Kingdom' },
+  { code: 'DE', name: 'Germany' },
+  { code: 'CN', name: 'China' },
+  { code: 'IN', name: 'India' },
+  { code: 'AU', name: 'Australia' },
+  { code: 'IT', name: 'Italy' },
+  { code: 'PL', name: 'Poland' },
+  { code: 'ES', name: 'Spain' },
+  { code: 'NO', name: 'Norway' },
+  { code: 'JP', name: 'Japan' },
+  { code: 'KR', name: 'South Korea' },
+  { code: 'CA', name: 'Canada' },
 ]
 
 const topicColorMap: { [key: string]: string } = {
@@ -46,25 +63,27 @@ const topicLabelMap: { [key: string]: string } = {
 
 export default function TopicsPage() {
   const [selectedTopic, setSelectedTopic] = useState('all')
+  const [selectedCountry, setSelectedCountry] = useState('all')
 
   const { data } = useSWR(
-    selectedTopic === 'all'
-      ? `${process.env.NEXT_PUBLIC_API_URL}/articles?days=7&page_size=50`
-      : `${process.env.NEXT_PUBLIC_API_URL}/articles?days=7&page_size=50`,
+    `${process.env.NEXT_PUBLIC_API_URL}/articles?days=7&page_size=50`,
     fetcher
   )
 
-  // Filter articles by selected topic
+  // Filter articles by selected topic and country
   const filteredArticles = data?.items?.filter((article: any) => {
-    if (selectedTopic === 'all') return true
-    
-    // Check if any topic tag matches the selected topic or its category
-    return article.topic_tags?.some((tag: string) => {
+    // Topic filter
+    const topicMatch = selectedTopic === 'all' || article.topic_tags?.some((tag: string) => {
       if (selectedTopic === 'renewables') {
         return tag.includes('renewables') || tag.includes('solar') || tag.includes('wind')
       }
       return tag.includes(selectedTopic)
     })
+    
+    // Country filter
+    const countryMatch = selectedCountry === 'all' || article.country_codes?.includes(selectedCountry)
+    
+    return topicMatch && countryMatch
   })
 
   const getTopicColor = (tags: string[]) => {
@@ -81,22 +100,42 @@ export default function TopicsPage() {
 
   return (
     <div className="h-full overflow-auto bg-gray-50">
-      {/* Topic Filter Bar */}
+      {/* Filter Bar */}
       <div className="bg-white border-b border-gray-200 px-8 py-6">
-        <div className="flex items-center gap-3">
-          {topics.map((topic) => (
-            <button
-              key={topic.id}
-              onClick={() => setSelectedTopic(topic.id)}
-              className={`px-6 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                selectedTopic === topic.id
-                  ? 'bg-gray-900 text-white shadow-md'
-                  : 'bg-white text-gray-700 border border-gray-300 hover:border-gray-400 hover:shadow-sm'
-              }`}
-            >
-              {topic.label}
-            </button>
-          ))}
+        {/* Topic Filters */}
+        <div className="mb-4">
+          <label className="text-xs font-semibold text-gray-500 uppercase mb-2 block">Topics</label>
+          <div className="flex items-center gap-3 flex-wrap">
+            {topics.map((topic) => (
+              <button
+                key={topic.id}
+                onClick={() => setSelectedTopic(topic.id)}
+                className={`px-6 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                  selectedTopic === topic.id
+                    ? 'bg-gray-900 text-white shadow-md'
+                    : 'bg-white text-gray-700 border border-gray-300 hover:border-gray-400 hover:shadow-sm'
+                }`}
+              >
+                {topic.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        
+        {/* Country Filter */}
+        <div>
+          <label className="text-xs font-semibold text-gray-500 uppercase mb-2 block">Countries</label>
+          <select
+            value={selectedCountry}
+            onChange={(e) => setSelectedCountry(e.target.value)}
+            className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+          >
+            {countries.map((country) => (
+              <option key={country.code} value={country.code}>
+                {country.name}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
@@ -145,10 +184,10 @@ export default function TopicsPage() {
                 </h3>
 
                 {/* Source and Date */}
-                <div className="flex items-center gap-2 text-sm text-gray-500 mb-3">
+                <div className="flex items-center gap-2 text-xs text-gray-500 mb-3">
                   <span className="font-medium">{article.source_name || 'News Source'}</span>
                   <span>•</span>
-                  <span>{formatDate(article.published_at)}</span>
+                  <span>{formatTimeAgo(article.published_at)}</span>
                 </div>
 
                 {/* Summary */}
