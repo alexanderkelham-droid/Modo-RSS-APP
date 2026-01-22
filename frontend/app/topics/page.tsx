@@ -2,66 +2,101 @@
 
 import { useState } from 'react'
 import useSWR from 'swr'
+import { ExternalLink } from 'lucide-react'
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
 
 const topics = [
-  { id: 'all', label: 'All Topics' },
-  { id: 'renewables_solar', label: 'Solar' },
-  { id: 'renewables_wind', label: 'Wind' },
-  { id: 'hydrogen', label: 'Hydrogen' },
-  { id: 'storage_batteries', label: 'Battery' },
-  { id: 'nuclear', label: 'Nuclear' },
-  { id: 'power_grid', label: 'Grid' },
+  { id: 'all', label: 'All', color: 'bg-gray-900' },
+  { id: 'renewables', label: 'Renewable Energy', color: 'bg-green-600' },
+  { id: 'oil_gas', label: 'Oil & Gas', color: 'bg-gray-800' },
+  { id: 'nuclear', label: 'Nuclear', color: 'bg-orange-600' },
+  { id: 'ev_transport', label: 'Electric Vehicles', color: 'bg-blue-600' },
+  { id: 'policy', label: 'Energy Policy', color: 'bg-purple-600' },
+  { id: 'climate', label: 'Climate & Environment', color: 'bg-emerald-600' },
 ]
+
+const topicColorMap: { [key: string]: string } = {
+  'renewables_solar': 'bg-green-600',
+  'renewables_wind': 'bg-green-600',
+  'renewables': 'bg-green-600',
+  'oil_gas': 'bg-gray-800',
+  'nuclear': 'bg-orange-600',
+  'ev_transport': 'bg-blue-600',
+  'policy': 'bg-purple-600',
+  'climate': 'bg-emerald-600',
+  'hydrogen': 'bg-cyan-600',
+  'storage_batteries': 'bg-blue-600',
+  'power_grid': 'bg-indigo-600',
+}
+
+const topicLabelMap: { [key: string]: string } = {
+  'renewables_solar': 'Renewable Energy',
+  'renewables_wind': 'Renewable Energy',
+  'renewables': 'Renewable Energy',
+  'oil_gas': 'Oil & Gas',
+  'nuclear': 'Nuclear',
+  'ev_transport': 'Electric Vehicles',
+  'policy': 'Energy Policy',
+  'climate': 'Climate & Environment',
+  'hydrogen': 'Renewable Energy',
+  'storage_batteries': 'Electric Vehicles',
+  'power_grid': 'Energy Policy',
+}
 
 export default function TopicsPage() {
   const [selectedTopic, setSelectedTopic] = useState('all')
-  const [searchQuery, setSearchQuery] = useState('')
 
   const { data } = useSWR(
     selectedTopic === 'all'
-      ? `${process.env.NEXT_PUBLIC_API_URL}/articles?days=7&page_size=20`
-      : `${process.env.NEXT_PUBLIC_API_URL}/articles?days=7&topic=${selectedTopic}&page_size=20`,
+      ? `${process.env.NEXT_PUBLIC_API_URL}/articles?days=7&page_size=50`
+      : `${process.env.NEXT_PUBLIC_API_URL}/articles?days=7&page_size=50`,
     fetcher
   )
 
-  const filteredArticles = data?.items?.filter((article: any) =>
-    searchQuery
-      ? article.title.toLowerCase().includes(searchQuery.toLowerCase())
-      : true
-  )
+  // Filter articles by selected topic
+  const filteredArticles = data?.items?.filter((article: any) => {
+    if (selectedTopic === 'all') return true
+    
+    // Check if any topic tag matches the selected topic or its category
+    return article.topic_tags?.some((tag: string) => {
+      if (selectedTopic === 'renewables') {
+        return tag.includes('renewables') || tag.includes('solar') || tag.includes('wind')
+      }
+      return tag.includes(selectedTopic)
+    })
+  })
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString)
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  }
+
+  const getTopicColor = (tags: string[]) => {
+    if (!tags || tags.length === 0) return 'bg-gray-600'
+    const firstTag = tags[0]
+    return topicColorMap[firstTag] || 'bg-gray-600'
+  }
+
+  const getTopicLabel = (tags: string[]) => {
+    if (!tags || tags.length === 0) return 'Energy'
+    const firstTag = tags[0]
+    return topicLabelMap[firstTag] || firstTag.replace(/_/g, ' ')
+  }
 
   return (
-    <div className="h-full overflow-auto">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4 text-center">
-        <h1 className="text-2xl font-bold text-gray-900">Explore Topics</h1>
-        <p className="text-gray-500 text-sm mt-0.5">
-          Filter news by technology sector or search specific keywords.
-        </p>
-
-        {/* Search Bar */}
-        <div className="mt-4 max-w-xl mx-auto">
-          <input
-            type="text"
-            placeholder="Search keywords..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-
-        {/* Topic Pills */}
-        <div className="flex flex-wrap justify-center gap-2 mt-4">
+    <div className="h-full overflow-auto bg-gray-50">
+      {/* Topic Filter Bar */}
+      <div className="bg-white border-b border-gray-200 px-8 py-6">
+        <div className="flex items-center gap-3">
           {topics.map((topic) => (
             <button
               key={topic.id}
               onClick={() => setSelectedTopic(topic.id)}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+              className={`px-6 py-2.5 rounded-lg text-sm font-medium transition-all ${
                 selectedTopic === topic.id
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white text-gray-700 border border-gray-300 hover:border-gray-400'
+                  ? 'bg-gray-900 text-white shadow-md'
+                  : 'bg-white text-gray-700 border border-gray-300 hover:border-gray-400 hover:shadow-sm'
               }`}
             >
               {topic.label}
@@ -70,19 +105,22 @@ export default function TopicsPage() {
         </div>
       </div>
 
-      {/* Articles Grid */}
-      <div className="p-5">
-        <div className="grid grid-cols-4 gap-4">
+      {/* Articles Section */}
+      <div className="px-8 py-6">
+        {/* Article Count */}
+        <p className="text-sm text-gray-600 mb-6">
+          Showing {filteredArticles?.length || 0} articles
+        </p>
+
+        {/* Articles Grid - 3 columns */}
+        <div className="grid grid-cols-3 gap-6">
           {filteredArticles?.map((article: any) => (
-            <a
+            <div
               key={article.id}
-              href={article.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow"
+              className="bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-lg transition-shadow"
             >
-              {/* Image Placeholder */}
-              <div className="h-36 bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center relative overflow-hidden">
+              {/* Image with Topic Badge */}
+              <div className="relative h-56 bg-gradient-to-br from-gray-100 to-gray-200">
                 <img
                   src={article.image_url || '/source-logos/eia.jpg'}
                   alt={article.title}
@@ -94,55 +132,56 @@ export default function TopicsPage() {
                     }
                   }}
                 />
+                {/* Topic Badge Overlay */}
+                {article.topic_tags && article.topic_tags.length > 0 && (
+                  <div className="absolute top-4 left-4">
+                    <span className={`${getTopicColor(article.topic_tags)} text-white text-xs font-medium px-3 py-1.5 rounded-full shadow-md`}>
+                      {getTopicLabel(article.topic_tags)}
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Content */}
-              <div className="p-3">
-                <div className="flex items-center gap-2 text-xs mb-2">
-                  <span className="font-bold text-orange-500 uppercase truncate">
-                    {article.source_name || 'NEWS SOURCE'}
-                  </span>
-                  <span className="text-gray-400">•</span>
-                  <span className="text-gray-500">
-                    {Math.floor(
-                      (new Date().getTime() -
-                        new Date(article.published_at).getTime()) /
-                        (1000 * 60 * 60)
-                    )}h
-                  </span>
-                </div>
-
-                <h3 className="text-sm font-bold text-gray-900 mb-2 line-clamp-2 leading-tight">
+              <div className="p-5">
+                {/* Title */}
+                <h3 className="text-lg font-bold text-gray-900 mb-3 line-clamp-2 leading-tight">
                   {article.title}
                 </h3>
 
-                <p className="text-xs text-gray-600 line-clamp-2 mb-2">
-                  {article.summary || 'No summary available'}
+                {/* Source and Date */}
+                <div className="flex items-center gap-2 text-sm text-gray-500 mb-3">
+                  <span className="font-medium">{article.source_name || 'News Source'}</span>
+                  <span>•</span>
+                  <span>{formatDate(article.published_at)}</span>
+                </div>
+
+                {/* Summary */}
+                <p className="text-sm text-gray-600 line-clamp-3 mb-4 leading-relaxed">
+                  {article.summary || article.raw_summary || 'No summary available'}
                 </p>
 
-                {/* Tags */}
-                <div className="flex flex-wrap gap-1">
-                  {article.country_codes?.slice(0, 2).map((code: string) => (
-                    <span
-                      key={code}
-                      className="px-1.5 py-0.5 bg-blue-50 text-blue-600 text-xs rounded"
-                    >
-                      {code}
-                    </span>
-                  ))}
-                  {article.topic_tags?.slice(0, 2).map((tag: string) => (
-                    <span
-                      key={tag}
-                      className="px-1.5 py-0.5 bg-gray-100 text-gray-600 text-xs rounded"
-                    >
-                      {tag.replace(/_/g, ' ')}
-                    </span>
-                  ))}
-                </div>
+                {/* Read More Button */}
+                <a
+                  href={article.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 text-sm font-medium text-gray-900 hover:text-blue-600 transition-colors"
+                >
+                  Read More
+                  <ExternalLink className="w-4 h-4" />
+                </a>
               </div>
-            </a>
+            </div>
           ))}
         </div>
+
+        {/* Empty State */}
+        {(!filteredArticles || filteredArticles.length === 0) && (
+          <div className="text-center py-12">
+            <p className="text-gray-500">No articles found for this topic.</p>
+          </div>
+        )}
       </div>
     </div>
   )
