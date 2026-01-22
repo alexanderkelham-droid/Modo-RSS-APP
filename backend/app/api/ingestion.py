@@ -14,15 +14,21 @@ router = APIRouter(prefix="/ingestion", tags=["ingestion"])
 
 
 @router.post("/run", response_model=IngestionRunResponse)
-async def trigger_ingestion(db: AsyncSession = Depends(get_db)):
+async def trigger_ingestion(
+    max_per_source: int = 10,
+    db: AsyncSession = Depends(get_db)
+):
     """
     Trigger a manual ingestion run for all enabled sources.
+    
+    Args:
+        max_per_source: Maximum number of articles to fetch from each source (default: 10)
     
     Returns statistics about the ingestion run.
     """
     service = IngestionService(db)
     try:
-        run = await service.run_ingestion()
+        run = await service.run_ingestion(max_per_source=max_per_source)
         return IngestionRunResponse(
             id=run.id,
             started_at=run.started_at,

@@ -54,6 +54,13 @@ export default function CountryBriefsPage() {
             <option value="CN">China</option>
             <option value="IN">India</option>
             <option value="AU">Australia</option>
+            <option value="IT">Italy</option>
+            <option value="PL">Poland</option>
+            <option value="ES">Spain</option>
+            <option value="NO">Norway</option>
+            <option value="JP">Japan</option>
+            <option value="KR">South Korea</option>
+            <option value="CA">Canada</option>
           </select>
         </div>
       </div>

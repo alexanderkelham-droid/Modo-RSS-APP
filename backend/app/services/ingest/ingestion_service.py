@@ -164,9 +164,13 @@ class IngestionService:
             entries = self.parser.parse_feed(feed_content)
             print(f"✅ Found {len(entries)} entries in feed")
             
-            # Limit to 10 articles per source
-            entries = entries[:10]
-            print(f"📊 Processing {len(entries)} entries (limited to 10)")
+            # Sort by published date (most recent first)
+            entries = sorted(entries, key=lambda e: e.published_at or datetime.min, reverse=True)
+            
+            # Limit to max_per_source articles per source
+            max_articles = getattr(self, 'max_per_source', 10)
+            entries = entries[:max_articles]
+            print(f"📊 Processing {len(entries)} entries (limited to {max_articles}, sorted by date)")
             
             # Process each entry
             for idx, entry in enumerate(entries, 1):
@@ -308,13 +312,19 @@ class IngestionService:
                 "error": f"Unexpected error: {e}",
             })
     
-    async def run_ingestion(self) -> IngestionRun:
+    async def run_ingestion(self, max_per_source: int = 10) -> IngestionRun:
         """
         Run full ingestion cycle for all enabled sources.
+        
+        Args:
+            max_per_source: Maximum number of articles to fetch from each source
         
         Returns:
             IngestionRun object with statistics
         """
+        # Store max_per_source for use in ingest_source
+        self.max_per_source = max_per_source
+        
         # Create ingestion run record
         run = IngestionRun(
             started_at=datetime.utcnow(),
