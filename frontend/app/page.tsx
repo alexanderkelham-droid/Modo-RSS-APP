@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import useSWR from 'swr'
 import Image from 'next/image'
+import { formatTimeAgo } from '@/utils/time'
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
 
@@ -29,9 +30,9 @@ export default function Dashboard() {
   const featuredStory = stories?.items?.[0]
 
   return (
-    <div className="h-full overflow-auto">
+    <div className="h-full overflow-auto bg-gray-50">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
+      <div className="bg-white border-b border-gray-200 px-8 py-6">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Market Overview</h1>
@@ -61,7 +62,7 @@ export default function Dashboard() {
                 href={featuredStory.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="block bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden h-full hover:shadow-md transition-shadow"
+                className="block bg-white rounded-xl shadow-sm overflow-hidden h-full hover:shadow-lg transition-shadow"
               >
                 <div className="h-64 bg-gradient-to-br from-gray-100 to-gray-200 relative overflow-hidden">
                   <img
@@ -76,17 +77,14 @@ export default function Dashboard() {
                     }}
                   />
                 </div>
-                <div className="p-5">\n                  <div className="flex items-center gap-2 text-xs mb-3">
+                <div className="p-5">
+                  <div className="flex items-center gap-2 text-xs mb-3">
                     <span className="font-bold text-orange-500 uppercase">
                       {featuredStory.source_name}
                     </span>
                     <span className="text-gray-400">•</span>
                     <span className="text-gray-500">
-                      {Math.floor(
-                        (new Date().getTime() -
-                          new Date(featuredStory.published_at).getTime()) /
-                          (1000 * 60 * 60)
-                      )}h ago
+                      {formatTimeAgo(featuredStory.published_at)}
                     </span>
                   </div>
                   <h2 className="text-xl font-bold text-gray-900 mb-3 leading-tight">
@@ -186,12 +184,7 @@ export default function Dashboard() {
                         {item.title}
                       </h4>
                       <p className="text-xs text-gray-500 mt-1">
-                        {item.topic_tags?.[0]?.replace(/_/g, ' ') || 'General'} •{' '}
-                        {Math.floor(
-                          (new Date().getTime() -
-                            new Date(item.published_at).getTime()) /
-                            (1000 * 60 * 60 * 24)
-                        )}d ago
+                        {item.topic_tags?.[0]?.replace(/_/g, ' ') || 'General'} • {formatTimeAgo(item.published_at)}
                       </p>
                     </div>
                   </a>

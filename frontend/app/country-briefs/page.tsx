@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import useSWR from 'swr'
+import { formatTimeAgo, formatDate } from '@/utils/time'
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
 
@@ -102,61 +103,84 @@ export default function CountryBriefsPage() {
         </div>
 
         {/* Articles List */}
-        <div className="mt-4 grid grid-cols-2 gap-4">
-          {stories?.items?.map((article: any) => (
-            <a
-              key={article.id}
-              href={article.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 hover:shadow-md transition-shadow"
-            >
-              <div className="h-32 bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg mb-3 flex items-center justify-center relative overflow-hidden">
-                <img
-                  src={article.image_url || '/source-logos/eia.jpg'}
-                  alt={article.title}
-                  className="w-full h-full object-cover rounded-lg"
-                  onError={(e) => {
-                    const target = e.target as HTMLImageElement
-                    if (target.src !== window.location.origin + '/source-logos/eia.jpg') {
-                      target.src = '/source-logos/eia.jpg'
-                    }
-                  }}
-                />
-              </div>
-              <div className="text-xs font-bold text-orange-500 uppercase mb-2">
-                {article.source_name} •{' '}
-                {Math.floor(
-                  (new Date().getTime() - new Date(article.published_at).getTime()) /
-                    (1000 * 60 * 60)
-                )}h ago
-              </div>
-              <h3 className="text-sm font-bold text-gray-900 mb-2 line-clamp-2">
-                {article.title}
-              </h3>
-              <p className="text-xs text-gray-600 line-clamp-2 mb-2">
-                {article.summary}
-              </p>
-              <div className="flex gap-1 flex-wrap">
-                {article.country_codes?.slice(0, 2).map((code: string) => (
-                  <span
-                    key={code}
-                    className="px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded text-xs"
+        <div className="mt-4">
+          <p className="text-sm text-gray-600 mb-4">
+            Showing {stories?.items?.length || 0} articles
+          </p>
+          
+          <div className="grid grid-cols-3 gap-6">
+            {stories?.items?.map((article: any) => (
+              <div
+                key={article.id}
+                className="bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-lg transition-shadow"
+              >
+                {/* Image */}
+                <div className="relative h-48 bg-gradient-to-br from-gray-100 to-gray-200">
+                  <img
+                    src={article.image_url || '/source-logos/eia.jpg'}
+                    alt={article.title}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement
+                      if (target.src !== window.location.origin + '/source-logos/eia.jpg') {
+                        target.src = '/source-logos/eia.jpg'
+                      }
+                    }}
+                  />
+                </div>
+                
+                {/* Content */}
+                <div className="p-5">
+                  <h3 className="text-lg font-bold text-gray-900 mb-3 line-clamp-2 leading-tight">
+                    {article.title}
+                  </h3>
+                  
+                  <div className="flex items-center gap-2 text-sm text-gray-500 mb-3">
+                    <span className="font-medium">{article.source_name}</span>
+                    <span>•</span>
+                    <span>{formatTimeAgo(article.published_at)}</span>
+                  </div>
+                  
+                  <p className="text-sm text-gray-600 line-clamp-3 mb-4 leading-relaxed">
+                    {article.summary || article.raw_summary || 'No summary available'}
+                  </p>
+                  
+                  {/* Tags */}
+                  <div className="flex gap-2 flex-wrap mb-4">
+                    {article.country_codes?.slice(0, 2).map((code: string) => (
+                      <span
+                        key={code}
+                        className="px-2 py-1 bg-blue-50 text-blue-600 rounded text-xs font-medium"
+                      >
+                        {code}
+                      </span>
+                    ))}
+                    {article.topic_tags?.slice(0, 2).map((tag: string) => (
+                      <span
+                        key={tag}
+                        className="px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs font-medium"
+                      >
+                        {tag.replace(/_/g, ' ')}
+                      </span>
+                    ))}
+                  </div>
+                  
+                  {/* Read More */}
+                  <a
+                    href={article.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 text-sm font-medium text-gray-900 hover:text-blue-600 transition-colors"
                   >
-                    {code}
-                  </span>
-                ))}
-                {article.topic_tags?.slice(0, 2).map((tag: string) => (
-                  <span
-                    key={tag}
-                    className="px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded text-xs"
-                  >
-                    {tag.replace(/_/g, ' ')}
-                  </span>
-                ))}
+                    Read More
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                  </a>
+                </div>
               </div>
-            </a>
-          ))}
+            ))}
+          </div>
         </div>
       </div>
     </div>

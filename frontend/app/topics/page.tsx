@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import useSWR from 'swr'
+import { formatTimeAgo, formatDate } from '@/utils/time'
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
 
@@ -65,11 +66,6 @@ export default function TopicsPage() {
       return tag.includes(selectedTopic)
     })
   })
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString)
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-  }
 
   const getTopicColor = (tags: string[]) => {
     if (!tags || tags.length === 0) return 'bg-gray-600'
