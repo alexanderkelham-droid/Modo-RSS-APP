@@ -5,10 +5,12 @@ import useSWR from 'swr'
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
 
 export default function FeedManagerPage() {
-  const { data: sources } = useSWR(
+  const { data: sourcesData } = useSWR(
     `${process.env.NEXT_PUBLIC_API_URL}/sources`,
     fetcher
   )
+
+  const sources = sourcesData?.items || []
 
   return (
     <div className="h-full overflow-auto">
