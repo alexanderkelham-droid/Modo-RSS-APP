@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import useSWR from 'swr'
-import { ExternalLink } from 'lucide-react'
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
 
@@ -169,7 +168,9 @@ export default function TopicsPage() {
                   className="inline-flex items-center gap-2 text-sm font-medium text-gray-900 hover:text-blue-600 transition-colors"
                 >
                   Read More
-                  <ExternalLink className="w-4 h-4" />
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
                 </a>
               </div>
             </div>
