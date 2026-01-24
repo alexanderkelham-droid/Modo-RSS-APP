@@ -20,7 +20,11 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 async def process_articles_task():
     """Process articles in a separate task."""
     async with AsyncSessionLocal() as db:
-        chunking_service = ChunkingService()
+        chunking_service = ChunkingService(
+            min_chunk_size=800,
+            max_chunk_size=1200,
+            overlap=100,
+        )
         embedding_provider = OpenAIEmbeddingProvider(api_key=settings.OPENAI_API_KEY)
         
         # Get articles without chunks
@@ -30,33 +34,43 @@ async def process_articles_task():
         articles = result.scalars().all()
         
         total_chunks = 0
+        processed = 0
         
         for article in articles:
             if article.content_text:
                 try:
-                    chunks = chunking_service.chunk_text(
-                        text=article.content_text,
-                        chunk_size=settings.CHUNK_SIZE,
-                        chunk_overlap=settings.CHUNK_OVERLAP,
-                    )
+                    # Store article id before potential session issues
+                    article_id = article.id
                     
-                    for chunk_num, chunk_text in enumerate(chunks):
-                        embedding = await embedding_provider.generate_embedding(chunk_text)
+                    # Chunk text
+                    text_chunks = chunking_service.chunk_text(text=article.content_text)
+                    
+                    # Create chunks with embeddings
+                    for chunk_obj in text_chunks:
+                        embedding = await embedding_provider.generate_embedding(chunk_obj.text)
                         
                         chunk = ArticleChunk(
-                            article_id=article.id,
-                            chunk_number=chunk_num,
-                            content=chunk_text,
+                            article_id=article_id,
+                            chunk_number=chunk_obj.chunk_index,
+                            content=chunk_obj.text,
                             embedding=embedding,
                         )
                         db.add(chunk)
                         total_chunks += 1
                     
                     await db.commit()
+                    processed += 1
+                    
+                    # Log progress every 10 articles
+                    if processed % 10 == 0:
+                        print(f"Processed {processed}/{len(articles)} articles, {total_chunks} chunks")
+                    
                 except Exception as e:
                     await db.rollback()
-                    print(f"Error processing article {article.id}: {e}")
+                    print(f"Error processing article: {str(e)}")
                     continue
+        
+        print(f"✅ Processing complete: {processed} articles, {total_chunks} total chunks")
 
 
 @router.get("/process-articles")
