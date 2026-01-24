@@ -231,8 +231,10 @@ Now answer the user's question using only the context above."""
         Returns:
             List of articles tagged with the country
         """
+        from sqlalchemy.dialects.postgresql import array
+        
         query = select(Article).where(
-            Article.country_codes.contains([country_code])
+            Article.country_codes.any(country_code)
         ).order_by(Article.published_at.desc()).limit(limit)
         
         result = await db.execute(query)
