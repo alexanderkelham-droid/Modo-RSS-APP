@@ -6,7 +6,9 @@ from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, or_
 
+from app.db.models import Article
 from app.services.rag.vector_search import VectorSearchService, SearchFilters, SearchResult
 from app.services.rag.chat_provider import ChatProvider
 from app.services.rag.embedding_provider import EmbeddingProvider
@@ -154,6 +156,65 @@ Now answer the user's question using only the context above."""
         else:
             return "low"
     
+    async def _keyword_search_articles(
+        self,
+        db: AsyncSession,
+        question: str,
+        limit: int = 5,
+    ) -> List[Article]:
+        """
+        Search for articles by keyword in title or content.
+        
+        Args:
+            db: Database session
+            question: User question to extract keywords from
+            limit: Maximum number of articles to return
+            
+        Returns:
+            List of matching articles
+        """
+        # Extract potential keywords (simple approach - just look for capitalized phrases)
+        # This will catch company names, project names, etc.
+        words = question.split()
+        keywords = []
+        
+        # Look for capitalized words or phrases
+        i = 0
+        while i < len(words):
+            word = words[i].strip('.,!?').strip()
+            if word and (word[0].isupper() or len(word) > 1 and word[1:].islower()):
+                # Collect consecutive capitalized words
+                phrase = [word]
+                j = i + 1
+                while j < len(words):
+                    next_word = words[j].strip('.,!?').strip()
+                    if next_word and (next_word[0].isupper() or next_word.lower() in ['energy', 'solar', 'wind', 'power', 'battery']):
+                        phrase.append(next_word)
+                        j += 1
+                    else:
+                        break
+                
+                if len(phrase) >= 2 or len(phrase[0]) > 5:  # Multi-word or long single word
+                    keywords.append(' '.join(phrase))
+                    i = j
+                else:
+                    i += 1
+            else:
+                i += 1
+        
+        if not keywords:
+            return []
+        
+        # Search in database
+        conditions = []
+        for keyword in keywords:
+            conditions.append(Article.title.ilike(f'%{keyword}%'))
+            conditions.append(Article.content_text.ilike(f'%{keyword}%'))
+        
+        query = select(Article).where(or_(*conditions)).limit(limit)
+        result = await db.execute(query)
+        return result.scalars().all()
+    
     async def chat(
         self,
         db: AsyncSession,
@@ -185,8 +246,42 @@ Now answer the user's question using only the context above."""
         # Assess confidence
         confidence = self._assess_confidence(chunks)
         
-        # Handle low confidence case - use general LLM knowledge
+        # Handle low confidence case - try keyword search first
         if not chunks or confidence == "low":
+            # Try keyword search for articles
+            keyword_articles = await self._keyword_search_articles(db, question)
+            
+            # If we found articles by keyword, present them
+            if keyword_articles:
+                articles_list = "\n".join([
+                    f"- [{article.title}]({article.url}) - Published: {article.published_at.strftime('%Y-%m-%d') if article.published_at else 'Unknown'}"
+                    for article in keyword_articles
+                ])
+                
+                answer = f"Yes! I found {len(keyword_articles)} article(s) that may be relevant:\n\n{articles_list}\n\nWould you like me to answer a specific question about any of these articles?"
+                
+                # Create citations from articles
+                citations = [
+                    Citation(
+                        id=article.id,
+                        title=article.title,
+                        url=article.url,
+                        published_at=article.published_at,
+                        source=article.url.split('/')[2] if '://' in article.url else 'Unknown',
+                        chunk_id=0,
+                        similarity=0.0,  # Keyword match, not semantic
+                    )
+                    for article in keyword_articles
+                ]
+                
+                return ChatResponse(
+                    answer=answer,
+                    citations=citations,
+                    confidence="medium",
+                    filters_applied=self._serialize_filters(filters),
+                )
+            
+            # No keyword matches either - use general LLM knowledge
             # Use general knowledge system prompt
             general_prompt = """You are an AI assistant specializing in energy and renewable energy topics.
             
