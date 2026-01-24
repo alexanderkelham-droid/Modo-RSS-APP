@@ -173,43 +173,43 @@ Now answer the user's question using only the context above."""
         Returns:
             List of matching articles
         """
-        # Extract potential keywords (simple approach - just look for capitalized phrases)
-        # This will catch company names, project names, etc.
-        words = question.split()
-        keywords = []
+        # Clean up question and extract meaningful words
+        question_lower = question.lower()
+        stopwords = {
+            'do', 'we', 'have', 'any', 'articles', 'article', 'on', 'about', 
+            'the', 'a', 'an', 'is', 'are', 'tell', 'me', 'what', 'who', 
+            'when', 'where', 'why', 'how', 'can', 'you', 'show', 'find'
+        }
         
-        # Look for capitalized words or phrases
-        i = 0
-        while i < len(words):
-            word = words[i].strip('.,!?').strip()
-            if word and (word[0].isupper() or len(word) > 1 and word[1:].islower()):
-                # Collect consecutive capitalized words
-                phrase = [word]
-                j = i + 1
-                while j < len(words):
-                    next_word = words[j].strip('.,!?').strip()
-                    if next_word and (next_word[0].isupper() or next_word.lower() in ['energy', 'solar', 'wind', 'power', 'battery']):
-                        phrase.append(next_word)
-                        j += 1
-                    else:
-                        break
-                
-                if len(phrase) >= 2 or len(phrase[0]) > 5:  # Multi-word or long single word
-                    keywords.append(' '.join(phrase))
-                    i = j
-                else:
-                    i += 1
-            else:
-                i += 1
+        words = [w.strip('.,!?') for w in question_lower.split()]
+        keywords = [w for w in words if w not in stopwords and len(w) > 3]
         
         if not keywords:
             return []
         
-        # Search in database
+        # Build multi-word phrases (consecutive keywords)
+        phrases = []
+        if len(keywords) >= 2:
+            # Try full phrase of all keywords
+            phrases.append(' '.join(keywords))
+            # Try pairs of keywords
+            for i in range(len(keywords) - 1):
+                phrases.append(f"{keywords[i]} {keywords[i+1]}")
+        
+        # Search: prioritize phrases over individual keywords
         conditions = []
+        
+        # First add phrase searches (higher priority)
+        for phrase in phrases:
+            conditions.append(Article.title.ilike(f'%{phrase}%'))
+        
+        # Then add individual keyword searches (only for longer/specific words)
         for keyword in keywords:
-            conditions.append(Article.title.ilike(f'%{keyword}%'))
-            conditions.append(Article.content_text.ilike(f'%{keyword}%'))
+            if len(keyword) > 5:  # Only search for longer keywords individually
+                conditions.append(Article.title.ilike(f'%{keyword}%'))
+        
+        if not conditions:
+            return []
         
         query = select(Article).where(or_(*conditions)).limit(limit)
         result = await db.execute(query)
