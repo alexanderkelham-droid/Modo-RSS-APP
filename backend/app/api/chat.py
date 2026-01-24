@@ -27,7 +27,7 @@ def get_chat_service() -> ChatService:
     return ChatService(
         embedding_provider=embedding_provider,
         chat_provider=chat_provider,
-        min_similarity_threshold=0.5,
+        min_similarity_threshold=0.35,
         low_confidence_threshold=0.65,
     )
 
