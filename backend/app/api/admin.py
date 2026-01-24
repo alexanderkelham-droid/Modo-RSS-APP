@@ -27,48 +27,47 @@ async def process_articles_task():
         )
         embedding_provider = OpenAIEmbeddingProvider(api_key=settings.OPENAI_API_KEY)
         
-        # Get articles without chunks
+        # Get articles without chunks - load all data eagerly
         subquery = select(ArticleChunk.article_id).distinct().subquery()
-        query = select(Article).where(~Article.id.in_(select(subquery)))
+        query = select(Article.id, Article.content_text).where(
+            ~Article.id.in_(select(subquery)),
+            Article.content_text.isnot(None)
+        )
         result = await db.execute(query)
-        articles = result.scalars().all()
+        articles_data = result.all()
         
         total_chunks = 0
         processed = 0
         
-        for article in articles:
-            if article.content_text:
-                try:
-                    # Store article id before potential session issues
-                    article_id = article.id
+        for article_id, content_text in articles_data:
+            try:
+                # Chunk text
+                text_chunks = chunking_service.chunk_text(text=content_text)
+                
+                # Create chunks with embeddings
+                for chunk_obj in text_chunks:
+                    embedding = await embedding_provider.generate_embedding(chunk_obj.text)
                     
-                    # Chunk text
-                    text_chunks = chunking_service.chunk_text(text=article.content_text)
-                    
-                    # Create chunks with embeddings
-                    for chunk_obj in text_chunks:
-                        embedding = await embedding_provider.generate_embedding(chunk_obj.text)
-                        
-                        chunk = ArticleChunk(
-                            article_id=article_id,
-                            chunk_number=chunk_obj.chunk_index,
-                            content=chunk_obj.text,
-                            embedding=embedding,
-                        )
-                        db.add(chunk)
-                        total_chunks += 1
-                    
-                    await db.commit()
-                    processed += 1
-                    
-                    # Log progress every 10 articles
-                    if processed % 10 == 0:
-                        print(f"Processed {processed}/{len(articles)} articles, {total_chunks} chunks")
-                    
-                except Exception as e:
-                    await db.rollback()
-                    print(f"Error processing article: {str(e)}")
-                    continue
+                    chunk = ArticleChunk(
+                        article_id=article_id,
+                        chunk_number=chunk_obj.chunk_index,
+                        content=chunk_obj.text,
+                        embedding=embedding,
+                    )
+                    db.add(chunk)
+                    total_chunks += 1
+                
+                await db.commit()
+                processed += 1
+                
+                # Log progress every 10 articles
+                if processed % 10 == 0:
+                    print(f"Processed {processed}/{len(articles_data)} articles, {total_chunks} chunks")
+                
+            except Exception as e:
+                await db.rollback()
+                print(f"Error processing article: {str(e)}")
+                continue
         
         print(f"✅ Processing complete: {processed} articles, {total_chunks} total chunks")
 
