@@ -44,10 +44,14 @@ async def process_articles_task():
                 # Chunk text
                 text_chunks = chunking_service.chunk_text(text=content_text)
                 
+                # Get all chunk texts
+                chunk_texts = [chunk_obj.text for chunk_obj in text_chunks]
+                
+                # Generate embeddings in batch
+                embeddings = await embedding_provider.embed(chunk_texts)
+                
                 # Create chunks with embeddings
-                for chunk_obj in text_chunks:
-                    embedding = await embedding_provider.generate_embedding(chunk_obj.text)
-                    
+                for chunk_obj, embedding in zip(text_chunks, embeddings):
                     chunk = ArticleChunk(
                         article_id=article_id,
                         chunk_number=chunk_obj.chunk_index,
