@@ -95,7 +95,7 @@ export default function ArticleChat({ isOpen, onClose }: ArticleChatProps) {
   if (!isOpen) return null
 
   return (
-    <div className="fixed bottom-20 right-6 w-96 h-[600px] bg-white rounded-lg shadow-2xl border border-gray-200 flex flex-col z-50">
+    <div className="fixed bottom-20 right-6 w-96 max-h-[calc(100vh-140px)] h-[600px] bg-white rounded-lg shadow-2xl border border-gray-200 flex flex-col z-50">
       {/* Header */}
       <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 py-3 rounded-t-lg flex items-center justify-between">
         <div className="flex items-center gap-2">
