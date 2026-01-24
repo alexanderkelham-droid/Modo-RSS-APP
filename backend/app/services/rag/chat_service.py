@@ -185,25 +185,32 @@ Now answer the user's question using only the context above."""
         # Assess confidence
         confidence = self._assess_confidence(chunks)
         
-        # Handle low confidence case
+        # Handle low confidence case - use general LLM knowledge
         if not chunks or confidence == "low":
-            # Build helpful message with filter suggestions
-            filter_info = []
-            if filters:
-                if filters.countries:
-                    filter_info.append(f"countries: {', '.join(filters.countries)}")
-                if filters.topics:
-                    filter_info.append(f"topics: {', '.join(filters.topics)}")
-                if filters.date_from or filters.date_to:
-                    filter_info.append("with date range filter")
+            # Use general knowledge system prompt
+            general_prompt = """You are an AI assistant specializing in energy and renewable energy topics.
             
-            if filter_info:
-                suggestion = f"Try adjusting your filters ({', '.join(filter_info)}) or broadening your search."
-            else:
-                suggestion = "Try adding filters for specific countries or topics, or check if relevant content has been ingested."
+The user has asked a question, but we don't have relevant articles in our database to answer it directly.
+However, you can use your general knowledge to provide a helpful answer.
+
+IMPORTANT: At the end of your response, add a note that this answer is based on general knowledge 
+since we don't have specific articles on this topic in our database.
+
+Be helpful, accurate, and concise."""
+            
+            messages = [
+                {"role": "system", "content": general_prompt},
+                {"role": "user", "content": question},
+            ]
+            
+            answer = await self.chat_provider.generate(
+                messages=messages,
+                temperature=0.3,  # Slightly higher for general knowledge
+                max_tokens=1000,
+            )
             
             return ChatResponse(
-                answer=f"I don't have enough information in the ingested corpus to answer this question. {suggestion}",
+                answer=answer,
                 citations=[],
                 confidence="low",
                 filters_applied=self._serialize_filters(filters),
