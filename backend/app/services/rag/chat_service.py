@@ -156,6 +156,88 @@ Now answer the user's question using only the context above."""
         else:
             return "low"
     
+    def _extract_country_from_question(self, question: str) -> Optional[str]:
+        """
+        Extract country name from question and convert to ISO code.
+        
+        Args:
+            question: User question
+            
+        Returns:
+            ISO country code (e.g., 'DE' for Germany) or None
+        """
+        question_lower = question.lower()
+        
+        # Map of country names to ISO codes (common energy countries)
+        country_map = {
+            'germany': 'DE', 'german': 'DE',
+            'france': 'FR', 'french': 'FR',
+            'uk': 'GB', 'united kingdom': 'GB', 'britain': 'GB', 'british': 'GB',
+            'spain': 'ES', 'spanish': 'ES',
+            'italy': 'IT', 'italian': 'IT',
+            'netherlands': 'NL', 'dutch': 'NL',
+            'poland': 'PL', 'polish': 'PL',
+            'usa': 'US', 'united states': 'US', 'america': 'US', 'american': 'US',
+            'china': 'CN', 'chinese': 'CN',
+            'india': 'IN', 'indian': 'IN',
+            'japan': 'JP', 'japanese': 'JP',
+            'australia': 'AU', 'australian': 'AU',
+            'canada': 'CA', 'canadian': 'CA',
+            'brazil': 'BR', 'brazilian': 'BR',
+            'mexico': 'MX', 'mexican': 'MX',
+            'south africa': 'ZA',
+            'saudi arabia': 'SA',
+            'uae': 'AE', 'emirates': 'AE',
+            'norway': 'NO', 'norwegian': 'NO',
+            'sweden': 'SE', 'swedish': 'SE',
+            'denmark': 'DK', 'danish': 'DK',
+            'finland': 'FI', 'finnish': 'FI',
+            'belgium': 'BE', 'belgian': 'BE',
+            'austria': 'AT', 'austrian': 'AT',
+            'switzerland': 'CH', 'swiss': 'CH',
+            'portugal': 'PT', 'portuguese': 'PT',
+            'greece': 'GR', 'greek': 'GR',
+            'turkey': 'TR', 'turkish': 'TR',
+            'south korea': 'KR', 'korea': 'KR', 'korean': 'KR',
+            'vietnam': 'VN', 'vietnamese': 'VN',
+            'indonesia': 'ID', 'indonesian': 'ID',
+            'thailand': 'TH', 'thai': 'TH',
+            'philippines': 'PH', 'philippine': 'PH',
+            'singapore': 'SG',
+            'malaysia': 'MY', 'malaysian': 'MY',
+        }
+        
+        # Check for country mentions
+        for country_name, iso_code in country_map.items():
+            if country_name in question_lower:
+                return iso_code
+        
+        return None
+    
+    async def _search_articles_by_country(
+        self,
+        db: AsyncSession,
+        country_code: str,
+        limit: int = 10,
+    ) -> List[Article]:
+        """
+        Search for articles tagged with a specific country.
+        
+        Args:
+            db: Database session
+            country_code: ISO country code (e.g., 'DE')
+            limit: Maximum number of articles to return
+            
+        Returns:
+            List of articles tagged with the country
+        """
+        query = select(Article).where(
+            Article.country_codes.contains([country_code])
+        ).order_by(Article.published_at.desc()).limit(limit)
+        
+        result = await db.execute(query)
+        return result.scalars().all()
+    
     async def _keyword_search_articles(
         self,
         db: AsyncSession,
@@ -260,8 +342,68 @@ Now answer the user's question using only the context above."""
         # Assess confidence
         confidence = self._assess_confidence(chunks)
         
-        # Handle low confidence case - try keyword search first
+        # Handle low confidence case - try alternative search methods
         if not chunks or confidence == "low":
+            # First, check if question is about a specific country
+            country_code = self._extract_country_from_question(question)
+            
+            if country_code:
+                # Search for articles by country
+                country_articles = await self._search_articles_by_country(db, country_code, limit=10)
+                
+                if country_articles:
+                    # Build context from country-specific articles
+                    context_parts = []
+                    for i, article in enumerate(country_articles[:5], start=1):
+                        content_snippet = article.content_text[:400] if article.content_text else article.raw_summary or "No content available"
+                        context_parts.append(
+                            f"[{i}] {article.title}\n"
+                            f"Published: {article.published_at.strftime('%Y-%m-%d') if article.published_at else 'Unknown'}\n"
+                            f"Content: {content_snippet}..."
+                        )
+                    
+                    context = "\n\n".join(context_parts)
+                    
+                    system_prompt = f"""You are an AI assistant specializing in energy and renewable energy topics.
+
+Below are recent articles from our database about the country mentioned in the user's question:
+
+{context}
+
+Answer the user's question based on these articles. Summarize the key energy developments, trends, or news from these articles.
+Cite sources by referencing the article numbers [1], [2], etc."""
+                    
+                    messages = [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": question},
+                    ]
+                    
+                    answer = await self.chat_provider.generate(
+                        messages=messages,
+                        temperature=0.2,
+                        max_tokens=1000,
+                    )
+                    
+                    citations = [
+                        Citation(
+                            id=article.id,
+                            title=article.title,
+                            url=article.url,
+                            published_at=article.published_at,
+                            source=article.url.split('/')[2] if '://' in article.url else 'Unknown',
+                            chunk_id=0,
+                            similarity=0.0,
+                        )
+                        for article in country_articles[:5]
+                    ]
+                    
+                    return ChatResponse(
+                        answer=answer,
+                        citations=citations,
+                        confidence="medium",
+                        filters_applied=self._serialize_filters(filters),
+                    )
+            
             # Try keyword search for articles
             keyword_articles = await self._keyword_search_articles(db, question)
             
