@@ -143,8 +143,10 @@ class BriefGenerator:
         Returns:
             List of matching articles
         """
-        # Build query
-        query = select(Article).where(
+        from sqlalchemy.orm import selectinload
+        
+        # Build query with eager loading of source relationship
+        query = select(Article).options(selectinload(Article.source)).where(
             and_(
                 Article.published_at >= start_date,
                 Article.published_at <= end_date,
