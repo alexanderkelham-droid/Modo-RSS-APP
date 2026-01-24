@@ -9,7 +9,7 @@ from typing import Dict, Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.session import async_session_maker
+from app.db.session import AsyncSessionLocal
 from app.db.models import Source, Article, ArticleChunk
 from app.services.ingest.ingestion_service import IngestionService
 from app.services.ingest.fetcher import RSSFetcher
@@ -100,9 +100,9 @@ async def run_full_ingestion_pipeline() -> Dict[str, Any]:
     country_tagger = CountryTagger()
     topic_tagger = TopicTagger()
     chunking_service = ChunkingService()
-    embedding_provider = OpenAIEmbeddingProvider(api_key=settings.openai_api_key)
+    embedding_provider = OpenAIEmbeddingProvider(api_key=settings.OPENAI_API_KEY)
     
-    async with async_session_maker() as db:
+    async with AsyncSessionLocal() as db:
         # Get enabled sources
         query = select(Source).where(Source.enabled == True)
         result = await db.execute(query)
