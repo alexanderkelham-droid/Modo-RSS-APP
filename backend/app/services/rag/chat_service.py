@@ -265,14 +265,43 @@ Now answer the user's question using only the context above."""
             # Try keyword search for articles
             keyword_articles = await self._keyword_search_articles(db, question)
             
-            # If we found articles by keyword, present them
+            # If we found articles by keyword, use them as context
             if keyword_articles:
-                articles_list = "\n".join([
-                    f"- [{article.title}]({article.url}) - Published: {article.published_at.strftime('%Y-%m-%d') if article.published_at else 'Unknown'}"
-                    for article in keyword_articles
-                ])
+                # Build context from article content
+                context_parts = []
+                for i, article in enumerate(keyword_articles, start=1):
+                    # Get a snippet of content (first 500 chars)
+                    content_snippet = article.content_text[:500] if article.content_text else article.raw_summary or "No content available"
+                    context_parts.append(
+                        f"[{i}] {article.title}\n"
+                        f"Published: {article.published_at.strftime('%Y-%m-%d') if article.published_at else 'Unknown'}\n"
+                        f"Content: {content_snippet}..."
+                    )
                 
-                answer = f"Yes! I found {len(keyword_articles)} article(s) that may be relevant:\n\n{articles_list}\n\nWould you like me to answer a specific question about any of these articles?"
+                context = "\n\n".join(context_parts)
+                
+                # Generate answer using articles as context
+                system_prompt = f"""You are an AI assistant specializing in energy and renewable energy topics.
+                
+Below are relevant articles from our database that match the user's question:
+
+{context}
+
+Answer the user's question based on the information in these articles. If the articles don't fully answer the question, 
+you can supplement with general knowledge but clearly indicate which parts come from our articles vs general knowledge.
+
+Cite sources by referencing the article numbers [1], [2], etc."""
+                
+                messages = [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": question},
+                ]
+                
+                answer = await self.chat_provider.generate(
+                    messages=messages,
+                    temperature=0.2,
+                    max_tokens=1000,
+                )
                 
                 # Create citations from articles
                 citations = [
