@@ -30,6 +30,7 @@ class GenerateBriefResponse(BaseModel):
     country_code: Optional[str]
     topic: Optional[str]
     date_range: dict
+    articles: Optional[list] = None
 
 
 def get_brief_generator() -> BriefGenerator:

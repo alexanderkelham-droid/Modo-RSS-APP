@@ -124,10 +124,72 @@ export default function Dashboard() {
               </div>
             </div>
           ) : brief?.content ? (
-            <div className="prose prose-sm max-w-none">
-              <div className="text-gray-600 whitespace-pre-wrap">{brief.content}</div>
-              <div className="mt-4 text-xs text-gray-400">
-                Generated: {brief.generated_at || 'Just now'} • {brief.article_count || 0} articles analyzed
+            <div>
+              {/* Article Images Gallery */}
+              {brief.articles && brief.articles.length > 0 && (
+                <div className="grid grid-cols-5 gap-2 mb-6">
+                  {brief.articles.slice(0, 5).map((article: any) => (
+                    <div key={article.id} className="relative h-24 rounded-lg overflow-hidden group">
+                      <img
+                        src={article.image_url || '/source-logos/eia.jpg'}
+                        alt={article.title}
+                        className="w-full h-full object-cover transition-transform group-hover:scale-110"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement
+                          if (target.src !== window.location.origin + '/source-logos/eia.jpg') {
+                            target.src = '/source-logos/eia.jpg'
+                          }
+                        }}
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+                    </div>
+                  ))}
+                </div>
+              )}
+              
+              {/* Brief Content with Rich Styling */}
+              <div className="prose prose-lg max-w-none">
+                <style jsx>{`
+                  .prose h1 { color: #1f2937; font-size: 1.5rem; font-weight: 700; margin-bottom: 1rem; border-left: 4px solid #2563eb; padding-left: 1rem; }
+                  .prose h2 { color: #374151; font-size: 1.25rem; font-weight: 600; margin-top: 2rem; margin-bottom: 1rem; }
+                  .prose h3 { color: #4b5563; font-size: 1.1rem; font-weight: 600; margin-top: 1.5rem; margin-bottom: 0.75rem; }
+                  .prose p { color: #374151; line-height: 1.8; margin-bottom: 1rem; }
+                  .prose strong { color: #1f2937; font-weight: 600; }
+                  .prose ul { margin-left: 1.5rem; margin-bottom: 1rem; }
+                  .prose li { color: #374151; margin-bottom: 0.5rem; }
+                `}</style>
+                <div className="text-gray-800 whitespace-pre-wrap leading-relaxed">{brief.content}</div>
+              </div>
+              
+              {/* Footer with metadata */}
+              <div className="mt-6 pt-4 border-t border-gray-200 flex items-center justify-between">
+                <div className="text-xs text-gray-400">
+                  Generated: {brief.generated_at || 'Just now'} • {brief.article_count || 0} articles analyzed
+                </div>
+                {brief.articles && brief.articles.length > 0 && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-500">Sources:</span>
+                    <div className="flex -space-x-2">
+                      {brief.articles.slice(0, 3).map((article: any, idx: number) => (
+                        <div
+                          key={idx}
+                          className="w-8 h-8 rounded-full bg-gray-200 border-2 border-white overflow-hidden"
+                          title={article.source_name}
+                        >
+                          <img
+                            src={article.image_url || '/source-logos/eia.jpg'}
+                            alt=""
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement
+                              target.src = '/source-logos/eia.jpg'
+                            }}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           ) : brief?.error ? (

@@ -31,6 +31,7 @@ class BriefResponse:
     country_code: Optional[str]
     topic: Optional[str]
     date_range: dict
+    articles: Optional[List[dict]] = None
 
 
 class BriefGenerator:
@@ -95,9 +96,22 @@ class BriefGenerator:
             topic=request.topic,
         )
         
+        # Prepare article metadata for frontend
+        article_metadata = [
+            {
+                "id": article.id,
+                "title": article.title,
+                "url": article.url,
+                "image_url": article.article_metadata.get('image_url') if article.article_metadata else None,
+                "source_name": article.source.name if article.source else None,
+            }
+            for article in articles[:5]  # First 5 articles for images
+        ]
+        
         return BriefResponse(
             brief=brief,
             article_count=len(articles),
+            articles=article_metadata,
             country_code=request.country_code,
             topic=request.topic,
             date_range={
