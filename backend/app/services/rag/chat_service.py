@@ -211,7 +211,21 @@ Now answer the user's question using only the context above."""
         if not conditions:
             return []
         
-        query = select(Article).where(or_(*conditions)).limit(limit)
+        # Use CASE to order by best match (phrase matches first)
+        query = select(Article).where(or_(*conditions))
+        
+        # Add ordering to prioritize phrase matches
+        from sqlalchemy import case
+        order_cases = []
+        for i, phrase in enumerate(phrases):
+            order_cases.append((Article.title.ilike(f'%{phrase}%'), i))
+        
+        if order_cases:
+            query = query.order_by(
+                case(*order_cases, else_=999)  # Phrase matches get lower numbers (higher priority)
+            )
+        
+        query = query.limit(limit)
         result = await db.execute(query)
         return result.scalars().all()
     
