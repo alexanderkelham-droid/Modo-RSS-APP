@@ -54,8 +54,8 @@ async def process_articles_task():
                 for chunk_obj, embedding in zip(text_chunks, embeddings):
                     chunk = ArticleChunk(
                         article_id=article_id,
-                        chunk_number=chunk_obj.chunk_index,
-                        content=chunk_obj.text,
+                        chunk_index=chunk_obj.chunk_index,
+                        text=chunk_obj.text,
                         embedding=embedding,
                     )
                     db.add(chunk)
