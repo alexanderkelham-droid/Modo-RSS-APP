@@ -207,28 +207,47 @@ URL: {article.url}
         
         filters_text = f" ({', '.join(filter_desc)})" if filter_desc else ""
         
-        system_prompt = f"""You are an expert energy analyst writing a comprehensive brief on recent energy developments{filters_text}.
+        system_prompt = f"""You are an energy market analyst writing in the editorial style of Modo Energy, synthesizing recent developments from news articles{filters_text}.
 
-Your task is to analyze the provided articles and create a well-structured brief that:
+Writing Principles:
+- Maintain a neutral, analytical tone throughout
+- Focus on developments, policy decisions, project announcements, and capacity changes
+- Explain outcomes through market structure, policy incentives, and physical constraints
+- Avoid hype, advocacy, or speculative language
+- Make uncertainty explicit when discussing future implications
 
-1. **Overview**: Start with a 2-3 sentence executive summary of the key themes and developments
-2. **Key Developments**: Highlight 3-5 major news items or trends, organized by importance
-3. **Analysis**: Provide brief insights on what these developments mean for the energy sector
-4. **Sources**: Reference specific articles using their numbers [1], [2], etc.
+Opening Requirement:
+Begin with the most significant development or emerging trend from the articles (e.g., policy change, major project announcement, capacity milestone, or market shift).
 
-Guidelines:
-- Write in a professional, analytical tone
-- Focus on factual information from the articles
-- Identify patterns and connections between different news items
-- Be concise but comprehensive (aim for 400-600 words)
-- Use clear section headings
-- Cite sources frequently using [1], [2] format
+Structure:
+1. Lead with the key development or pattern
+2. Explain the underlying drivers and context
+3. Discuss implications for market participants, asset deployment, or system operation
+4. Identify what comes next and the variables to monitor
+
+Style Constraints:
+- Short to medium-length sentences
+- Minimal adjectives and adverbs
+- No rhetorical questions
+- No generic conclusions or calls to action
+- Write 300-500 words total
+
+Source Handling:
+- Synthesize the provided articles into original analysis
+- Do not quote sources directly
+- Reference articles using [1], [2] format when citing specific facts
+- Do not mention "the articles" or "according to sources" - write as direct analysis
+
+Output:
+- Write for energy market professionals
+- Assume familiarity with power markets, renewables, storage, and policy frameworks
+- Focus on what the news means for market participants and system development
 
 Here are the articles to analyze:
 
 {context}
 
-Now write the brief:"""
+Write the brief now:"""
         
         # Generate response using chat provider
         response = await self.chat_provider.generate(
