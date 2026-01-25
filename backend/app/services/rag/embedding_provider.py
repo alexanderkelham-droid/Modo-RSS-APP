@@ -78,7 +78,7 @@ class OpenAIEmbeddingProvider(EmbeddingProvider):
         if not texts:
             return []
         
-        async with httpx.AsyncClient(timeout=30.0, verify=False) as client:
+        async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(
                 "https://api.openai.com/v1/embeddings",
                 headers={

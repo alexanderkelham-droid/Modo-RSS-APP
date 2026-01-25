@@ -15,6 +15,7 @@ from app.services.ingest.ingestion_service import IngestionService
 from app.services.ingest.fetcher import RSSFetcher
 from app.services.ingest.rss_parser import RSSParser
 from app.services.ingest.content_extractor import ContentExtractor
+from app.services.ingest.web_scraper import get_scraper
 from app.services.nlp.country_tagger import CountryTagger
 from app.services.nlp.topic_tagger import TopicTagger
 from app.services.rag.chunking_service import ChunkingService
@@ -117,28 +118,76 @@ async def run_full_ingestion_pipeline() -> Dict[str, Any]:
         # Process each source
         for source in sources:
             try:
-                logger.info(f"Processing source: {source.name}")
+                logger.info(f"Processing source: {source.name} (type: {source.type})")
                 metrics.sources_processed += 1
                 
-                # Step 1: Fetch RSS feed
-                try:
-                    xml_content = await fetcher.fetch(source.rss_url)
-                except Exception as e:
-                    error_msg = f"Failed to fetch {source.name}: {str(e)}"
-                    logger.error(error_msg)
-                    metrics.errors.append(error_msg)
-                    continue
+                # Fetch articles based on source type
+                parsed_articles = []
                 
-                # Step 2: Parse articles
-                try:
-                    parsed_articles = parser.parse(xml_content, source.rss_url)
-                    metrics.articles_fetched += len(parsed_articles)
-                    logger.info(f"  Fetched {len(parsed_articles)} articles")
-                except Exception as e:
-                    error_msg = f"Failed to parse {source.name}: {str(e)}"
-                    logger.error(error_msg)
-                    metrics.errors.append(error_msg)
-                    continue
+                if source.type == "web_scraper":
+                    # Step 1: Scrape website
+                    try:
+                        scraper = get_scraper(source.rss_url)  # rss_url field stores scraper name
+                        if not scraper:
+                            error_msg = f"Unknown scraper: {source.rss_url}"
+                            logger.error(error_msg)
+                            metrics.errors.append(error_msg)
+                            continue
+                        
+                        raw_articles = await scraper.scrape_articles(max_pages=3)
+                        logger.info(f"  Scraped {len(raw_articles)} articles")
+                        
+                        # Convert to parsed article format
+                        for raw_article in raw_articles:
+                            # Compute hash from URL
+                            import hashlib
+                            url_hash = hashlib.sha256(raw_article.url.encode('utf-8')).hexdigest()
+                            
+                            parsed_articles.append({
+                                "title": raw_article.title,
+                                "url": raw_article.url,
+                                "published_at": raw_article.published_at,
+                                "summary": raw_article.summary,
+                                "hash": url_hash,
+                            })
+                        
+                        metrics.articles_fetched += len(parsed_articles)
+                    except Exception as e:
+                        error_msg = f"Failed to scrape {source.name}: {str(e)}"
+                        logger.error(error_msg)
+                        metrics.errors.append(error_msg)
+                        continue
+                
+                else:
+                    # Step 1: Fetch RSS feed (default behavior)
+                    try:
+                        xml_content = await fetcher.fetch_feed(source.rss_url)
+                    except Exception as e:
+                        error_msg = f"Failed to fetch {source.name}: {str(e)}"
+                        logger.error(error_msg)
+                        metrics.errors.append(error_msg)
+                        continue
+                    
+                    # Step 2: Parse articles
+                    try:
+                        entries = parser.parse_feed(xml_content)
+                        # Convert RSSEntry objects to dicts
+                        parsed_articles = []
+                        for entry in entries:
+                            parsed_articles.append({
+                                "title": entry.title,
+                                "url": entry.url,
+                                "published_at": entry.published_at,
+                                "summary": entry.summary,
+                                "hash": parser.compute_content_hash(entry.title, entry.url, entry.summary),
+                            })
+                        metrics.articles_fetched += len(parsed_articles)
+                        logger.info(f"  Fetched {len(parsed_articles)} articles")
+                    except Exception as e:
+                        error_msg = f"Failed to parse {source.name}: {str(e)}"
+                        logger.error(error_msg)
+                        metrics.errors.append(error_msg)
+                        continue
                 
                 # Step 3-6: Process each article
                 for parsed_article in parsed_articles:
@@ -162,7 +211,7 @@ async def run_full_ingestion_pipeline() -> Dict[str, Any]:
                                 source_id=source.id,
                                 title=parsed_article["title"],
                                 url=parsed_article["url"],
-                                content_hash=parsed_article["content_hash"],
+                                hash=parsed_article.get("hash"),
                                 published_at=parsed_article.get("published_at"),
                                 raw_summary=parsed_article.get("summary"),
                             )
@@ -171,27 +220,42 @@ async def run_full_ingestion_pipeline() -> Dict[str, Any]:
                         
                         await db.flush()
                         
+                        # Query article fields to avoid greenlet errors
+                        article_url = article.url
+                        article_id = article.id
+                        
                         # Step 3: Extract content
                         try:
-                            extracted = await extractor.extract(article.url)
-                            article.content_text = extracted["content"]
-                            article.language = extracted["language"]
+                            content, language, image_url = await extractor.extract_article(article_url)
+                            article.content_text = content
+                            article.language = language
                             metrics.articles_extracted += 1
                         except Exception as e:
-                            logger.warning(f"  Extraction failed for {article.url}: {e}")
+                            logger.warning(f"  Extraction failed for {article_url}: {e}")
                             continue
                         
                         # Step 4: Tag countries and topics
+                        # Query fields explicitly to avoid greenlet errors in async context
+                        article_title = article.title
+                        article_content_text = article.content_text
+                        
                         try:
-                            text_to_tag = f"{article.title}\n\n{article.content_text or ''}"
-                            
-                            # Country tagging
-                            country_results = country_tagger.tag(text_to_tag, article.title)
-                            article.country_codes = [c["code"] for c in country_results]
+                            # Country tagging - NESO is always UK
+                            if source.name == "NESO":
+                                article.country_codes = ["GB"]
+                            else:
+                                country_results = country_tagger.tag_article(
+                                    title=article_title,
+                                    content=article_content_text
+                                )
+                                article.country_codes = country_results
                             
                             # Topic tagging
-                            topic_results = topic_tagger.tag(text_to_tag)
-                            article.topic_tags = [t["topic_id"] for t in topic_results]
+                            topic_results = topic_tagger.tag_article(
+                                title=article_title,
+                                content=article_content_text
+                            )
+                            article.topic_tags = topic_results
                             
                             metrics.articles_tagged += 1
                         except Exception as e:
@@ -213,9 +277,7 @@ async def run_full_ingestion_pipeline() -> Dict[str, Any]:
                                 
                                 # Create new chunks
                                 chunks = chunking_service.chunk_article(
-                                    article_id=article.id,
-                                    title=article.title,
-                                    content=article.content_text,
+                                    content_text=article.content_text,
                                 )
                                 
                                 chunk_texts = []
@@ -226,7 +288,6 @@ async def run_full_ingestion_pipeline() -> Dict[str, Any]:
                                         article_id=article.id,
                                         chunk_index=chunk_data["chunk_index"],
                                         text=chunk_data["text"],
-                                        char_count=chunk_data["char_count"],
                                         # Denormalize for faster filtering
                                         country_codes=article.country_codes,
                                         topic_tags=article.topic_tags,
@@ -240,7 +301,7 @@ async def run_full_ingestion_pipeline() -> Dict[str, Any]:
                                 # Step 6: Generate embeddings in batch
                                 if chunk_texts:
                                     try:
-                                        embeddings = await embedding_provider.embed_batch(chunk_texts)
+                                        embeddings = await embedding_provider.embed(chunk_texts)
                                         
                                         for chunk_obj, embedding in zip(chunk_objects, embeddings):
                                             chunk_obj.embedding = embedding
