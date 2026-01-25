@@ -301,14 +301,18 @@ async def run_full_ingestion_pipeline() -> Dict[str, Any]:
                                 # Step 6: Generate embeddings in batch
                                 if chunk_texts:
                                     try:
+                                        logger.info(f"  Generating embeddings for {len(chunk_texts)} chunks...")
                                         embeddings = await embedding_provider.embed(chunk_texts)
+                                        logger.info(f"  ✅ Generated {len(embeddings)} embeddings")
                                         
                                         for chunk_obj, embedding in zip(chunk_objects, embeddings):
                                             chunk_obj.embedding = embedding
                                         
                                         metrics.chunks_embedded += len(embeddings)
                                     except Exception as e:
-                                        logger.warning(f"  Embedding failed for {article.url}: {e}")
+                                        logger.error(f"  ❌ Embedding failed for {article.url}: {e}")
+                                        import traceback
+                                        logger.error(traceback.format_exc())
                                         # Still save chunks without embeddings
                                 
                                 # Save chunks
@@ -317,6 +321,8 @@ async def run_full_ingestion_pipeline() -> Dict[str, Any]:
                                 
                             except Exception as e:
                                 logger.warning(f"  Chunking failed for {article.url}: {e}")
+                                import traceback
+                                logger.error(traceback.format_exc())
                         
                         await db.commit()
                         
