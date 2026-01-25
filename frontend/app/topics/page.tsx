@@ -68,7 +68,7 @@ export default function TopicsPage() {
   const [isChatOpen, setIsChatOpen] = useState(false)
 
   const { data } = useSWR(
-    `${process.env.NEXT_PUBLIC_API_URL}/articles?days=7&page_size=50`,
+    `${process.env.NEXT_PUBLIC_API_URL}/articles?days=30&page_size=100`,
     fetcher
   )
 
