@@ -112,7 +112,7 @@ async def trigger_article_processing(
     }
 
 
-@router.post("/run-pipeline")
+@router.get("/run-pipeline")
 async def trigger_pipeline() -> Dict:
     """
     Trigger the full ingestion pipeline.
