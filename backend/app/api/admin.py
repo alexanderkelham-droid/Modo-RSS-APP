@@ -9,7 +9,7 @@ from typing import Dict
 import asyncio
 
 from app.db.session import get_db, AsyncSessionLocal
-from app.db.models import Article, ArticleChunk
+from app.db.models import Article, ArticleChunk, Source
 from app.services.rag.chunking_service import ChunkingService
 from app.services.rag.embedding_provider import OpenAIEmbeddingProvider
 from app.settings import settings
@@ -134,4 +134,61 @@ async def trigger_pipeline() -> Dict:
         "status": "started",
         "message": "Ingestion pipeline started in background",
         "note": "This may take 5-15 minutes. Check server logs for progress."
+    }
+
+
+@router.get("/check-neso")
+async def check_neso_articles(db: AsyncSession = Depends(get_db)) -> Dict:
+    """
+    Check NESO articles in the database.
+    
+    Returns count and sample of NESO articles.
+    """
+    # Find NESO source
+    result = await db.execute(select(Source).where(Source.name == "NESO"))
+    neso_source = result.scalar_one_or_none()
+    
+    if not neso_source:
+        return {
+            "error": "NESO source not found",
+            "hint": "Run the pipeline first to add NESO source"
+        }
+    
+    # Count articles
+    result = await db.execute(
+        select(func.count(Article.id)).where(Article.source_id == neso_source.id)
+    )
+    article_count = result.scalar()
+    
+    # Count chunks
+    result = await db.execute(
+        select(func.count(ArticleChunk.id))
+        .join(Article)
+        .where(Article.source_id == neso_source.id)
+    )
+    chunk_count = result.scalar()
+    
+    # Get sample articles
+    result = await db.execute(
+        select(Article)
+        .where(Article.source_id == neso_source.id)
+        .limit(5)
+    )
+    sample_articles = result.scalars().all()
+    
+    return {
+        "neso_source_id": neso_source.id,
+        "total_articles": article_count,
+        "total_chunks": chunk_count,
+        "sample_articles": [
+            {
+                "title": article.title,
+                "url": article.url,
+                "country_codes": article.country_codes,
+                "topic_tags": article.topic_tags,
+                "has_content": article.content_text is not None,
+                "has_embedding": article.embedding is not None,
+            }
+            for article in sample_articles
+        ]
     }
