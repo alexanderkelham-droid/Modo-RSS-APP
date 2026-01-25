@@ -4,7 +4,7 @@ API endpoint to process existing articles (chunk and embed).
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 from typing import Dict
 import asyncio
 
