@@ -9,7 +9,6 @@ export default function Sidebar() {
   const navItems = [
     { href: '/', label: 'Dashboard' },
     { href: '/topics', label: 'Topics' },
-    { href: '/ai-analyst', label: 'AI Analyst' },
     { href: '/feed-manager', label: 'Feed Manager' },
   ]
 

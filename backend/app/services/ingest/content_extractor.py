@@ -110,7 +110,14 @@ class ContentExtractor:
             async with httpx.AsyncClient(timeout=self.timeout, follow_redirects=True) as client:
                 response = await client.get(resolved_url, headers=headers)
                 response.raise_for_status()
-                return response.text
+                
+                # Ensure proper text decoding
+                # Try to use the encoding specified in the response, fallback to utf-8
+                if response.encoding:
+                    return response.text
+                else:
+                    # Force UTF-8 decoding if no encoding specified
+                    return response.content.decode('utf-8', errors='replace')
         except httpx.HTTPStatusError as e:
             raise ContentExtractionError(f"HTTP {e.response.status_code}: {resolved_url}") from e
         except httpx.TimeoutException as e:
