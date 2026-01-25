@@ -4,7 +4,7 @@ API endpoints for statistics and analytics.
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, any_
 from datetime import datetime, timedelta
 from typing import Dict, List
 
@@ -40,7 +40,7 @@ async def get_activity_stats(
     
     # Add country filter if specified
     if country_code:
-        query = query.where(Article.country_codes.contains([country_code]))
+        query = query.where(country_code == any_(Article.country_codes))
     
     query = query.group_by(func.date(Article.published_at)).order_by(func.date(Article.published_at))
     
@@ -85,7 +85,7 @@ async def get_topic_breakdown(
     
     # Add country filter if specified
     if country_code:
-        query = query.where(Article.country_codes.contains([country_code]))
+        query = query.where(country_code == any_(Article.country_codes))
     
     result = await db.execute(query)
     articles = result.scalars().all()
