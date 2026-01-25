@@ -162,7 +162,7 @@ export default function TopicsPage() {
                     article.image_url
                       ? article.image_url
                       : article.source_name === 'NESO'
-                        ? '/source-logos/NESO.png'
+                        ? '/source-logos/neso.png'
                         : '/source-logos/eia.jpg'
                   }
                   alt={article.title}
@@ -170,8 +170,8 @@ export default function TopicsPage() {
                   onError={(e) => {
                     const target = e.target as HTMLImageElement
                     if (article.source_name === 'NESO') {
-                      if (target.src !== window.location.origin + '/source-logos/NESO.png') {
-                        target.src = '/source-logos/NESO.png'
+                      if (target.src !== window.location.origin + '/source-logos/neso.png') {
+                        target.src = '/source-logos/neso.png'
                       }
                     } else {
                       if (target.src !== window.location.origin + '/source-logos/eia.jpg') {
