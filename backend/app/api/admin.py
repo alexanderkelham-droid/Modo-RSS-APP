@@ -168,7 +168,16 @@ async def check_neso_articles(db: AsyncSession = Depends(get_db)) -> Dict:
     )
     chunk_count = result.scalar()
     
-    # Get sample articles
+    # Count chunks WITH embeddings
+    result = await db.execute(
+        select(func.count(ArticleChunk.id))
+        .join(Article)
+        .where(Article.source_id == neso_source.id)
+        .where(ArticleChunk.embedding.isnot(None))
+    )
+    embedded_chunk_count = result.scalar()
+    
+    # Get sample articles with their chunk info
     result = await db.execute(
         select(Article)
         .where(Article.source_id == neso_source.id)
@@ -176,21 +185,32 @@ async def check_neso_articles(db: AsyncSession = Depends(get_db)) -> Dict:
     )
     sample_articles = result.scalars().all()
     
+    # For each sample article, check if its chunks have embeddings
+    sample_data = []
+    for article in sample_articles:
+        # Check if this article has chunks with embeddings
+        result = await db.execute(
+            select(func.count(ArticleChunk.id))
+            .where(ArticleChunk.article_id == article.id)
+            .where(ArticleChunk.embedding.isnot(None))
+        )
+        chunk_embed_count = result.scalar()
+        
+        sample_data.append({
+            "title": article.title,
+            "url": article.url,
+            "country_codes": article.country_codes,
+            "topic_tags": article.topic_tags,
+            "has_content": article.content_text is not None,
+            "chunks_with_embeddings": chunk_embed_count,
+        })
+    
     return {
         "neso_source_id": neso_source.id,
         "total_articles": article_count,
         "total_chunks": chunk_count,
-        "sample_articles": [
-            {
-                "title": article.title,
-                "url": article.url,
-                "country_codes": article.country_codes,
-                "topic_tags": article.topic_tags,
-                "has_content": article.content_text is not None,
-                "has_embedding": article.embedding is not None,
-            }
-            for article in sample_articles
-        ]
+        "chunks_with_embeddings": embedded_chunk_count,
+        "sample_articles": sample_data
     }
 
 
