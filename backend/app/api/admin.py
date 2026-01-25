@@ -13,6 +13,7 @@ from app.db.models import Article, ArticleChunk
 from app.services.rag.chunking_service import ChunkingService
 from app.services.rag.embedding_provider import OpenAIEmbeddingProvider
 from app.settings import settings
+from app.ingest.pipeline import run_full_ingestion_pipeline
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -108,4 +109,29 @@ async def trigger_article_processing(
         "message": f"Started processing {count} articles. This will take a few minutes.",
         "articles_to_process": count,
         "note": "Processing in background. Check logs for progress."
+    }
+
+
+@router.post("/run-pipeline")
+async def trigger_pipeline() -> Dict:
+    """
+    Trigger the full ingestion pipeline.
+    
+    This will:
+    - Fetch articles from all enabled sources (RSS and web scrapers)
+    - Extract content from article URLs
+    - Tag articles with countries and topics
+    - Create chunks
+    - Generate embeddings
+    
+    The pipeline runs in the background and may take several minutes.
+    Check the server logs for progress.
+    """
+    # Start pipeline in background
+    asyncio.create_task(run_full_ingestion_pipeline())
+    
+    return {
+        "status": "started",
+        "message": "Ingestion pipeline started in background",
+        "note": "This may take 5-15 minutes. Check server logs for progress."
     }
