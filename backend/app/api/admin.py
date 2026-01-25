@@ -287,3 +287,80 @@ async def embed_existing_chunks(db: AsyncSession = Depends(get_db)) -> Dict:
         "chunks_to_process": chunks_without_embeddings,
         "note": "Processing in background. Check server logs for progress."
     }
+
+
+@router.get("/add-neso-images")
+async def add_neso_images(db: AsyncSession = Depends(get_db)) -> Dict:
+    """
+    Add images to existing NESO articles by fetching from article pages.
+    """
+    from app.services.ingest.web_scraper import NESONewsScraper
+    
+    # Find NESO source
+    result = await db.execute(select(Source).where(Source.name == "NESO"))
+    neso_source = result.scalar_one_or_none()
+    
+    if not neso_source:
+        return {"error": "NESO source not found"}
+    
+    # Get all NESO articles
+    result = await db.execute(
+        select(Article).where(Article.source_id == neso_source.id)
+    )
+    articles = result.scalars().all()
+    
+    # Count articles without images
+    articles_without_images = [
+        a for a in articles 
+        if not a.article_metadata or not a.article_metadata.get("image_url")
+    ]
+    
+    if not articles_without_images:
+        return {
+            "status": "complete",
+            "message": "All NESO articles already have images",
+            "total_articles": len(articles),
+        }
+    
+    # Start background task to fetch images
+    async def fetch_images_task():
+        async with get_db_context() as task_db:
+            scraper = NESONewsScraper()
+            updated_count = 0
+            
+            print(f"🔄 Fetching images for {len(articles_without_images)} NESO articles...")
+            
+            for i, article in enumerate(articles_without_images, 1):
+                try:
+                    # Fetch image URL
+                    image_url = await scraper._fetch_article_image(article.url)
+                    
+                    if image_url:
+                        # Update article metadata
+                        if not article.article_metadata:
+                            article.article_metadata = {}
+                        article.article_metadata["image_url"] = image_url
+                        updated_count += 1
+                        print(f"  ✅ [{i}/{len(articles_without_images)}] Added image for: {article.title[:50]}...")
+                    else:
+                        print(f"  ⚠️  [{i}/{len(articles_without_images)}] No image found for: {article.title[:50]}...")
+                    
+                    # Commit every 5 articles
+                    if i % 5 == 0:
+                        await task_db.commit()
+                    
+                except Exception as e:
+                    print(f"  ❌ [{i}/{len(articles_without_images)}] Failed: {article.title[:50]}... - {e}")
+            
+            # Final commit
+            await task_db.commit()
+            print(f"✅ Image fetching complete: {updated_count}/{len(articles_without_images)} articles updated")
+    
+    asyncio.create_task(fetch_images_task())
+    
+    return {
+        "status": "started",
+        "message": f"Background task started to fetch images for {len(articles_without_images)} articles",
+        "articles_without_images": len(articles_without_images),
+        "total_articles": len(articles),
+    }
