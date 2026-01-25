@@ -72,8 +72,12 @@ export default function TopicsPage() {
     fetcher
   )
 
-  // Filter articles by selected topic and country
+  // Filter articles by selected topic, country, and exclude Carbon Brief
   const filteredArticles = data?.items?.filter((article: any) => {
+    // Exclude Carbon Brief articles
+    if (article.source_name && article.source_name.toLowerCase().includes('carbon brief')) {
+      return false;
+    }
     // Topic filter
     const topicMatch = selectedTopic === 'all' || article.topic_tags?.some((tag: string) => {
       if (selectedTopic === 'renewables') {
@@ -81,11 +85,9 @@ export default function TopicsPage() {
       }
       return tag.includes(selectedTopic)
     })
-    
     // Country filter
     const countryMatch = selectedCountry === 'all' || article.country_codes?.includes(selectedCountry)
-    
-    return topicMatch && countryMatch
+    return topicMatch && countryMatch;
   })
 
   const getTopicColor = (tags: string[]) => {
@@ -162,7 +164,7 @@ export default function TopicsPage() {
                     article.image_url
                       ? article.image_url
                       : article.source_name === 'NESO'
-                        ? '/source-logos/neso.png'
+                        ? '/source-logos/NESO.png'
                         : '/source-logos/eia.jpg'
                   }
                   alt={article.title}
@@ -170,8 +172,8 @@ export default function TopicsPage() {
                   onError={(e) => {
                     const target = e.target as HTMLImageElement
                     if (article.source_name === 'NESO') {
-                      if (target.src !== window.location.origin + '/source-logos/neso.png') {
-                        target.src = '/source-logos/neso.png'
+                      if (target.src !== window.location.origin + '/source-logos/NESO.png') {
+                        target.src = '/source-logos/NESO.png'
                       }
                     } else {
                       if (target.src !== window.location.origin + '/source-logos/eia.jpg') {
