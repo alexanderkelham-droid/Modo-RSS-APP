@@ -158,13 +158,25 @@ export default function TopicsPage() {
               {/* Image with Topic Badge */}
               <div className="relative h-56 bg-gradient-to-br from-gray-100 to-gray-200">
                 <img
-                  src={article.image_url || '/source-logos/eia.jpg'}
+                  src={
+                    article.image_url
+                      ? article.image_url
+                      : article.source_name === 'NESO'
+                        ? '/source-logos/NESO.png'
+                        : '/source-logos/eia.jpg'
+                  }
                   alt={article.title}
                   className="w-full h-full object-cover"
                   onError={(e) => {
                     const target = e.target as HTMLImageElement
-                    if (target.src !== window.location.origin + '/source-logos/eia.jpg') {
-                      target.src = '/source-logos/eia.jpg'
+                    if (article.source_name === 'NESO') {
+                      if (target.src !== window.location.origin + '/source-logos/NESO.png') {
+                        target.src = '/source-logos/NESO.png'
+                      }
+                    } else {
+                      if (target.src !== window.location.origin + '/source-logos/eia.jpg') {
+                        target.src = '/source-logos/eia.jpg'
+                      }
                     }
                   }}
                 />
