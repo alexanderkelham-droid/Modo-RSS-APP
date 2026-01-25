@@ -323,41 +323,30 @@ async def add_neso_images(db: AsyncSession = Depends(get_db)) -> Dict:
         }
     
     # Start background task to fetch images
+
     async def fetch_images_task():
-        async with get_db_context() as task_db:
-            scraper = NESONewsScraper()
-            updated_count = 0
-            
-            print(f"🔄 Fetching images for {len(articles_without_images)} NESO articles...")
-            
-            for i, article in enumerate(articles_without_images, 1):
-                try:
-                    # Fetch image URL
-                    image_url = await scraper._fetch_article_image(article.url)
-                    
-                    if image_url:
-                        # Update article metadata
-                        if not article.article_metadata:
-                            article.article_metadata = {}
-                        article.article_metadata["image_url"] = image_url
-                        updated_count += 1
-                        print(f"  ✅ [{i}/{len(articles_without_images)}] Added image for: {article.title[:50]}...")
-                    else:
-                        print(f"  ⚠️  [{i}/{len(articles_without_images)}] No image found for: {article.title[:50]}...")
-                    
-                    # Commit every 5 articles
-                    if i % 5 == 0:
-                        await task_db.commit()
-                    
-                except Exception as e:
-                    print(f"  ❌ [{i}/{len(articles_without_images)}] Failed: {article.title[:50]}... - {e}")
-            
-            # Final commit
-            await task_db.commit()
-            print(f"✅ Image fetching complete: {updated_count}/{len(articles_without_images)} articles updated")
-    
+        scraper = NESONewsScraper()
+        updated_count = 0
+        print(f"🔄 Fetching images for {len(articles_without_images)} NESO articles...")
+        for i, article in enumerate(articles_without_images, 1):
+            try:
+                image_url = await scraper._fetch_article_image(article.url)
+                if image_url:
+                    if not article.article_metadata:
+                        article.article_metadata = {}
+                    article.article_metadata["image_url"] = image_url
+                    updated_count += 1
+                    print(f"  ✅ [{i}/{len(articles_without_images)}] Added image for: {article.title[:50]}...")
+                else:
+                    print(f"  ⚠️  [{i}/{len(articles_without_images)}] No image found for: {article.title[:50]}...")
+                if i % 5 == 0:
+                    await db.commit()
+            except Exception as e:
+                print(f"  ❌ [{i}/{len(articles_without_images)}] Failed: {article.title[:50]}... - {e}")
+        await db.commit()
+        print(f"✅ Image fetching complete: {updated_count}/{len(articles_without_images)} articles updated")
+
     asyncio.create_task(fetch_images_task())
-    
     return {
         "status": "started",
         "message": f"Background task started to fetch images for {len(articles_without_images)} articles",
