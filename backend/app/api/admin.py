@@ -192,3 +192,78 @@ async def check_neso_articles(db: AsyncSession = Depends(get_db)) -> Dict:
             for article in sample_articles
         ]
     }
+
+
+@router.get("/embed-chunks")
+async def embed_existing_chunks(db: AsyncSession = Depends(get_db)) -> Dict:
+    """
+    Generate embeddings for chunks that don't have them yet.
+    
+    This is useful when chunks were created but embedding failed.
+    """
+    # Count chunks without embeddings
+    result = await db.execute(
+        select(func.count(ArticleChunk.id))
+        .where(ArticleChunk.embedding.is_(None))
+    )
+    chunks_without_embeddings = result.scalar()
+    
+    if chunks_without_embeddings == 0:
+        return {
+            "status": "success",
+            "message": "All chunks already have embeddings",
+            "chunks_processed": 0
+        }
+    
+    # Start embedding task
+    async def embed_task():
+        async with AsyncSessionLocal() as task_db:
+            from app.services.rag.embedding_provider import OpenAIEmbeddingProvider
+            from app.settings import settings
+            
+            provider = OpenAIEmbeddingProvider(api_key=settings.OPENAI_API_KEY)
+            
+            # Get chunks without embeddings
+            result = await task_db.execute(
+                select(ArticleChunk)
+                .where(ArticleChunk.embedding.is_(None))
+            )
+            chunks = result.scalars().all()
+            
+            print(f"🔄 Starting embedding generation for {len(chunks)} chunks...")
+            
+            # Process in batches of 100
+            batch_size = 100
+            total_embedded = 0
+            
+            for i in range(0, len(chunks), batch_size):
+                batch = chunks[i:i + batch_size]
+                chunk_texts = [chunk.text for chunk in batch]
+                
+                try:
+                    print(f"  Generating embeddings for batch {i//batch_size + 1} ({len(batch)} chunks)...")
+                    embeddings = await provider.embed(chunk_texts)
+                    
+                    for chunk, embedding in zip(batch, embeddings):
+                        chunk.embedding = embedding
+                    
+                    await task_db.commit()
+                    total_embedded += len(embeddings)
+                    print(f"  ✅ Batch {i//batch_size + 1} complete ({total_embedded}/{len(chunks)} total)")
+                    
+                except Exception as e:
+                    print(f"  ❌ Batch {i//batch_size + 1} failed: {e}")
+                    await task_db.rollback()
+                    import traceback
+                    print(traceback.format_exc())
+            
+            print(f"✅ Embedding generation complete: {total_embedded}/{len(chunks)} chunks embedded")
+    
+    asyncio.create_task(embed_task())
+    
+    return {
+        "status": "started",
+        "message": f"Started embedding generation for {chunks_without_embeddings} chunks",
+        "chunks_to_process": chunks_without_embeddings,
+        "note": "Processing in background. Check server logs for progress."
+    }
