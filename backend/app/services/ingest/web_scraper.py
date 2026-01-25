@@ -18,11 +18,13 @@ class ScrapedArticle:
         url: str,
         published_at: Optional[datetime] = None,
         summary: Optional[str] = None,
+        image_url: Optional[str] = None,
     ):
         self.title = title
         self.url = url
         self.published_at = published_at
         self.summary = summary
+        self.image_url = image_url
     
     def to_dict(self) -> Dict:
         """Convert to dictionary."""
@@ -31,6 +33,7 @@ class ScrapedArticle:
             "url": self.url,
             "published_at": self.published_at,
             "summary": self.summary,
+            "image_url": self.image_url,
         }
     
     def __repr__(self):
@@ -120,6 +123,13 @@ class NESONewsScraper(WebScraper):
                 if not page_articles:
                     # No more articles, stop pagination
                     break
+                
+                # Fetch image URLs for each article
+                for article in page_articles:
+                    try:
+                        article.image_url = await self._fetch_article_image(article.url)
+                    except Exception as e:
+                        print(f"Failed to fetch image for {article.url}: {e}")
                 
                 articles.extend(page_articles)
                 print(f"Scraped {len(page_articles)} articles from {url}")
@@ -222,6 +232,37 @@ class NESONewsScraper(WebScraper):
             # Use dateutil parser for flexible date parsing
             return parser.parse(date_str)
         except Exception:
+            return None
+    
+    async def _fetch_article_image(self, article_url: str) -> Optional[str]:
+        """
+        Fetch the main image URL from a NESO article page.
+        
+        Args:
+            article_url: URL of the article
+            
+        Returns:
+            Full image URL or None
+        """
+        try:
+            html = await self.fetch_html(article_url)
+            soup = BeautifulSoup(html, 'lxml')
+            
+            # Find the main article image
+            # It's in the image wrapper with class 'field-field-image'
+            image_wrapper = soup.find('div', class_='field-field-image')
+            if image_wrapper:
+                img_tag = image_wrapper.find('img')
+                if img_tag and img_tag.get('src'):
+                    img_src = img_tag.get('src')
+                    # Make it absolute if it's relative
+                    if img_src.startswith('/'):
+                        return f"{self.base_url}{img_src}"
+                    return img_src
+            
+            return None
+        except Exception as e:
+            print(f"Error fetching image from {article_url}: {e}")
             return None
 
 

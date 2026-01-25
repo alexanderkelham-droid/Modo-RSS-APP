@@ -149,6 +149,7 @@ async def run_full_ingestion_pipeline() -> Dict[str, Any]:
                                 "published_at": raw_article.published_at,
                                 "summary": raw_article.summary,
                                 "hash": url_hash,
+                                "image_url": raw_article.image_url,
                             })
                         
                         metrics.articles_fetched += len(parsed_articles)
@@ -226,9 +227,17 @@ async def run_full_ingestion_pipeline() -> Dict[str, Any]:
                         
                         # Step 3: Extract content
                         try:
-                            content, language, image_url = await extractor.extract_article(article_url)
+                            content, language, extracted_image_url = await extractor.extract_article(article_url)
                             article.content_text = content
                             article.language = language
+                            
+                            # Use scraper-provided image URL if available, otherwise use extracted one
+                            final_image_url = parsed_article.get("image_url") or extracted_image_url
+                            if final_image_url:
+                                if not article.article_metadata:
+                                    article.article_metadata = {}
+                                article.article_metadata["image_url"] = final_image_url
+                            
                             metrics.articles_extracted += 1
                         except Exception as e:
                             logger.warning(f"  Extraction failed for {article_url}: {e}")
