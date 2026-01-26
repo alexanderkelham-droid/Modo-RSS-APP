@@ -127,13 +127,13 @@ class VectorSearchService:
             if filters.countries:
                 # Match any of the specified countries
                 filter_conditions.append(
-                    ArticleChunk.country_codes.overlap(filters.countries)
+                    ArticleChunk.country_codes.op("&&")(filters.countries)
                 )
             
             if filters.topics:
                 # Match any of the specified topics
                 filter_conditions.append(
-                    ArticleChunk.topic_tags.overlap(filters.topics)
+                    ArticleChunk.topic_tags.op("&&")(filters.topics)
                 )
             
             if filters.date_from:
