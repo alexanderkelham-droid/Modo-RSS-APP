@@ -6,7 +6,7 @@ from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, or_
+from sqlalchemy import select, or_, any_
 
 from app.db.models import Article
 from app.services.rag.vector_search import VectorSearchService, SearchFilters, SearchResult
@@ -253,7 +253,7 @@ Now answer the user's question by combining the latest news from the context abo
         from sqlalchemy.dialects.postgresql import array
         
         query = select(Article).where(
-            Article.country_codes.any(country_code)
+            country_code == any_(Article.country_codes)
         ).order_by(Article.published_at.desc()).limit(limit)
         
         result = await db.execute(query)
