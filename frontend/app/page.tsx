@@ -4,6 +4,7 @@ import { useState } from 'react'
 import useSWR from 'swr'
 import Image from 'next/image'
 import { formatTimeAgo } from '@/utils/time'
+import ArticleChat from '@/components/ArticleChat'
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
 
@@ -12,6 +13,7 @@ export default function Dashboard() {
   const [selectedCountry, setSelectedCountry] = useState('US')
   const [loadingBrief, setLoadingBrief] = useState(false)
   const [brief, setBrief] = useState<any>(null)
+  const [isChatOpen, setIsChatOpen] = useState(false)
 
   const { data: stories } = useSWR(
     `${process.env.NEXT_PUBLIC_API_URL}/articles/top-stories?country=${selectedCountry}&days=${days}&limit=1`,
@@ -28,12 +30,12 @@ export default function Dashboard() {
     `${process.env.NEXT_PUBLIC_API_URL}/countries?days=${days}`,
     fetcher
   )
-  
+
   const { data: activityData } = useSWR(
     `${process.env.NEXT_PUBLIC_API_URL}/stats/activity?days=${days}&country_code=${selectedCountry}`,
     fetcher
   )
-  
+
   const { data: topicBreakdown } = useSWR(
     `${process.env.NEXT_PUBLIC_API_URL}/stats/topic-breakdown?days=${days}&country_code=${selectedCountry}`,
     fetcher
@@ -116,7 +118,7 @@ export default function Dashboard() {
               {loadingBrief ? 'Generating...' : 'Generate Brief'}
             </button>
           </div>
-          
+
           {loadingBrief ? (
             <div className="text-center py-8">
               <div className="animate-pulse text-gray-500">
@@ -147,7 +149,7 @@ export default function Dashboard() {
                   ))}
                 </div>
               )}
-              
+
               {/* Brief Content with Rich Styling */}
               <div className="prose prose-lg max-w-none">
                 <style jsx>{`
@@ -161,7 +163,7 @@ export default function Dashboard() {
                 `}</style>
                 <div className="text-gray-800 whitespace-pre-wrap leading-relaxed">{brief.content}</div>
               </div>
-              
+
               {/* Footer with metadata */}
               <div className="mt-6 pt-4 border-t border-gray-200 flex items-center justify-between">
                 <div className="text-xs text-gray-400">
@@ -201,7 +203,7 @@ export default function Dashboard() {
             <p className="text-gray-500 text-sm">Click \"Generate Brief\" to create an AI-powered summary of recent {selectedCountry} energy developments.</p>
           )}
         </div>
-        
+
         <div className="grid grid-cols-3 gap-6">
           {/* Featured Article */}
           <div className="col-span-2">
@@ -300,6 +302,29 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+      {/* Floating Chat Button */}
+      <button
+        onClick={() => setIsChatOpen(!isChatOpen)}
+        className="fixed bottom-6 right-6 w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg hover:shadow-xl transition-all flex items-center justify-center z-40"
+        aria-label="Open chat assistant"
+      >
+        {isChatOpen ? (
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        ) : (
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+          </svg>
+        )}
+      </button>
+
+      {/* Chat Component */}
+      <ArticleChat
+        isOpen={isChatOpen}
+        onClose={() => setIsChatOpen(false)}
+        contextCountry={selectedCountry}
+      />
     </div>
   )
 }

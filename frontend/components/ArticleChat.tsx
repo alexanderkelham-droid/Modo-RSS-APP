@@ -11,6 +11,7 @@ interface Message {
 interface ArticleChatProps {
   isOpen: boolean
   onClose: () => void
+  contextCountry?: string
 }
 
 const SUGGESTED_QUESTIONS = [
@@ -21,7 +22,7 @@ const SUGGESTED_QUESTIONS = [
   "Tell me about grid modernization in India",
 ]
 
-export default function ArticleChat({ isOpen, onClose }: ArticleChatProps) {
+export default function ArticleChat({ isOpen, onClose, contextCountry }: ArticleChatProps) {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
@@ -62,6 +63,9 @@ export default function ArticleChat({ isOpen, onClose }: ArticleChatProps) {
         body: JSON.stringify({
           question: userMessage.content,
           k: 5,
+          filters: contextCountry && contextCountry !== 'all' ? {
+            countries: [contextCountry]
+          } : undefined
         }),
       })
 

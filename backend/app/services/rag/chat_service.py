@@ -12,6 +12,7 @@ from app.db.models import Article
 from app.services.rag.vector_search import VectorSearchService, SearchFilters, SearchResult
 from app.services.rag.chat_provider import ChatProvider
 from app.services.rag.embedding_provider import EmbeddingProvider
+from app.services.nlp.topic_data import TOPIC_KEYWORDS
 
 
 @dataclass
@@ -212,6 +213,25 @@ Now answer the user's question by combining the latest news from the context abo
                 return iso_code
         
         return None
+
+    def _extract_topics_from_question(self, question: str) -> List[str]:
+        """
+        Extract topics from question based on keyword mapping.
+        
+        Args:
+            question: User question
+            
+        Returns:
+            List of topic IDs
+        """
+        question_lower = question.lower()
+        extracted_topics = []
+        
+        for topic_id, (pos_keywords, _) in TOPIC_KEYWORDS.items():
+            if any(keyword in question_lower for keyword in pos_keywords):
+                extracted_topics.append(topic_id)
+        
+        return extracted_topics
     
     async def _search_articles_by_country(
         self,
@@ -320,18 +340,27 @@ Now answer the user's question by combining the latest news from the context abo
         k: int = 8,
     ) -> ChatResponse:
         """
-        Answer a question using RAG.
-        
-        Args:
-            db: Database session
-            question: User question
-            filters: Optional search filters
-            k: Number of chunks to retrieve
-            
-        Returns:
-            ChatResponse with answer and citations
+        Answer a question using RAG with proactive filtering.
         """
-        # Retrieve relevant chunks
+        # 1. Eagerly extract filters from question
+        extracted_country = self._extract_country_from_question(question)
+        extracted_topics = self._extract_topics_from_question(question)
+        
+        # 2. Merge with provided filters
+        if not filters:
+            filters = SearchFilters()
+            
+        if extracted_country and not filters.countries:
+            filters.countries = [extracted_country]
+            
+        if extracted_topics:
+            if not filters.topics:
+                filters.topics = extracted_topics
+            else:
+                # Merge if existing, prioritizing question-extracted topics
+                filters.topics = list(set(filters.topics + extracted_topics))
+
+        # 3. Retrieve relevant chunks with STRICT filters first
         chunks = await self.vector_search.search_with_threshold(
             db=db,
             query=question,
@@ -340,135 +369,112 @@ Now answer the user's question by combining the latest news from the context abo
             min_similarity=self.min_similarity_threshold,
         )
         
-        # Assess confidence
+        # 4. Assess confidence
         confidence = self._assess_confidence(chunks)
         
-        # Handle low confidence case - try alternative search methods
+        # 5. Handle low confidence / no results - try fallback
         if not chunks or confidence == "low":
-            # First, check if question is about a specific country
-            country_code = self._extract_country_from_question(question)
-            
-            if country_code:
-                # Search for articles by country
-                country_articles = await self._search_articles_by_country(db, country_code, limit=10)
-                
-                if country_articles:
-                    # Build context from country-specific articles
-                    context_parts = []
-                    for i, article in enumerate(country_articles[:5], start=1):
-                        content_snippet = article.content_text[:400] if article.content_text else article.raw_summary or "No content available"
-                        context_parts.append(
-                            f"[{i}] {article.title}\n"
-                            f"Published: {article.published_at.strftime('%Y-%m-%d') if article.published_at else 'Unknown'}\n"
-                            f"Content: {content_snippet}..."
+            # If we had country filters, try broader article-level search as first fallback
+            if filters.countries:
+                for country_code in filters.countries:
+                    country_articles = await self._search_articles_by_country(db, country_code, limit=10)
+                    if country_articles:
+                        return await self._generate_response_from_articles(
+                            question, country_articles, "country", filters
                         )
-                    
-                    context = "\n\n".join(context_parts)
-                    
-                    system_prompt = f"""You are an AI assistant specializing in energy and renewable energy topics.
-
-Below are recent articles from our database about the country mentioned in the user's question:
-
-{context}
-
-Answer the user's question based on these articles and your general knowledge. Summarize the key energy developments, trends, or news from these articles, providing background context where helpful.
-Cite sources by referencing the article numbers [1], [2], etc."""
-                    
-                    messages = [
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": question},
-                    ]
-                    
-                    answer = await self.chat_provider.generate(
-                        messages=messages,
-                        temperature=0.2,
-                        max_tokens=1000,
-                    )
-                    
-                    citations = [
-                        Citation(
-                            id=article.id,
-                            title=article.title,
-                            url=article.url,
-                            published_at=article.published_at,
-                            source=article.url.split('/')[2] if '://' in article.url else 'Unknown',
-                            chunk_id=0,
-                            similarity=0.0,
-                        )
-                        for article in country_articles[:5]
-                    ]
-                    
-                    return ChatResponse(
-                        answer=answer,
-                        citations=citations,
-                        confidence="medium",
-                        filters_applied=self._serialize_filters(filters),
-                    )
             
-            # Try keyword search for articles
+            # Try keyword search as second fallback
             keyword_articles = await self._keyword_search_articles(db, question)
-            
-            # If we found articles by keyword, use them as context
             if keyword_articles:
-                # Build context from article content
-                context_parts = []
-                for i, article in enumerate(keyword_articles, start=1):
-                    # Get a snippet of content (first 500 chars)
-                    content_snippet = article.content_text[:500] if article.content_text else article.raw_summary or "No content available"
-                    context_parts.append(
-                        f"[{i}] {article.title}\n"
-                        f"Published: {article.published_at.strftime('%Y-%m-%d') if article.published_at else 'Unknown'}\n"
-                        f"Content: {content_snippet}..."
-                    )
-                
-                context = "\n\n".join(context_parts)
-                
-                # Generate answer using articles as context
-                system_prompt = f"""You are an AI assistant specializing in energy and renewable energy topics.
-                
-Below are relevant articles from our database that match the user's question:
+                return await self._generate_response_from_articles(
+                    question, keyword_articles, "keyword", filters
+                )
+            
+            # Final fallback: General knowledge
+            return await self._generate_general_knowledge_response(question, filters)
+        
+        # 6. Build prompt and generate answer (Normal path)
+        system_prompt = self._build_system_prompt(chunks)
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": question},
+        ]
+        
+        answer = await self.chat_provider.generate(
+            messages=messages,
+            temperature=0.1,
+            max_tokens=1000,
+        )
+        
+        return ChatResponse(
+            answer=answer,
+            citations=self._extract_citations(chunks),
+            confidence=confidence,
+            filters_applied=self._serialize_filters(filters),
+        )
+
+    async def _generate_response_from_articles(
+        self, 
+        question: str, 
+        articles: List[Article], 
+        source_type: str,
+        filters: SearchFilters
+    ) -> ChatResponse:
+        """Helper to generate response from a list of articles (fallback)."""
+        context_parts = []
+        for i, article in enumerate(articles[:5], start=1):
+            content_snippet = article.content_text[:400] if article.content_text else article.raw_summary or "No content available"
+            context_parts.append(
+                f"[{i}] {article.title}\n"
+                f"Published: {article.published_at.strftime('%Y-%m-%d') if article.published_at else 'Unknown'}\n"
+                f"Content: {content_snippet}..."
+            )
+        
+        context = "\n\n".join(context_parts)
+        
+        system_prompt = f"""You are an AI assistant specializing in energy and renewable energy topics.
+        
+Below are relevant articles from our database that {'match your requested location' if source_type == 'country' else 'contain keywords from your question'}:
 
 {context}
 
-Answer the user's question based on the information in these articles combined with your general knowledge. Use the articles to provide the latest specific updates, and your general knowledge to provide broader context.
-
+Answer the user's question based on these articles and your general knowledge. Summarize key trends or developments.
 Cite sources by referencing the article numbers [1], [2], etc."""
-                
-                messages = [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": question},
-                ]
-                
-                answer = await self.chat_provider.generate(
-                    messages=messages,
-                    temperature=0.2,
-                    max_tokens=1000,
-                )
-                
-                # Create citations from articles
-                citations = [
-                    Citation(
-                        id=article.id,
-                        title=article.title,
-                        url=article.url,
-                        published_at=article.published_at,
-                        source=article.url.split('/')[2] if '://' in article.url else 'Unknown',
-                        chunk_id=0,
-                        similarity=0.0,  # Keyword match, not semantic
-                    )
-                    for article in keyword_articles
-                ]
-                
-                return ChatResponse(
-                    answer=answer,
-                    citations=citations,
-                    confidence="medium",
-                    filters_applied=self._serialize_filters(filters),
-                )
-            
-            # No keyword matches either - use general LLM knowledge
-            # Use general knowledge system prompt
-            general_prompt = """You are an AI assistant specializing in energy and renewable energy topics.
+        
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": question},
+        ]
+        
+        answer = await self.chat_provider.generate(
+            messages=messages,
+            temperature=0.2,
+            max_tokens=1000,
+        )
+        
+        citations = [
+            Citation(
+                id=article.id,
+                title=article.title,
+                url=article.url,
+                published_at=article.published_at,
+                source=article.url.split('/')[2] if '://' in article.url else 'Unknown',
+                chunk_id=0,
+                similarity=0.0,
+            )
+            for article in articles[:5]
+        ]
+        
+        return ChatResponse(
+            answer=answer,
+            citations=citations,
+            confidence="medium",
+            filters_applied=self._serialize_filters(filters),
+        )
+
+    async def _generate_general_knowledge_response(self, question: str, filters: SearchFilters) -> ChatResponse:
+        """Final fallback using general knowledge."""
+        general_prompt = """You are an AI assistant specializing in energy and renewable energy topics.
             
 The user has asked a question, but we don't have relevant articles in our database to answer it directly.
 However, you can use your general knowledge to provide a helpful answer.
@@ -477,50 +483,25 @@ IMPORTANT: At the end of your response, add a note that this answer is based on 
 since we don't have specific articles on this topic in our database.
 
 Be helpful, accurate, and concise."""
-            
-            messages = [
-                {"role": "system", "content": general_prompt},
-                {"role": "user", "content": question},
-            ]
-            
-            answer = await self.chat_provider.generate(
-                messages=messages,
-                temperature=0.3,  # Slightly higher for general knowledge
-                max_tokens=1000,
-            )
-            
-            return ChatResponse(
-                answer=answer,
-                citations=[],
-                confidence="low",
-                filters_applied=self._serialize_filters(filters),
-            )
         
-        # Build prompt with context
-        system_prompt = self._build_system_prompt(chunks)
-        
-        # Generate answer
         messages = [
-            {"role": "system", "content": system_prompt},
+            {"role": "system", "content": general_prompt},
             {"role": "user", "content": question},
         ]
         
         answer = await self.chat_provider.generate(
             messages=messages,
-            temperature=0.1,  # Low temperature for factual responses
+            temperature=0.3,
             max_tokens=1000,
         )
         
-        # Extract citations
-        citations = self._extract_citations(chunks)
-        
         return ChatResponse(
             answer=answer,
-            citations=citations,
-            confidence=confidence,
+            citations=[],
+            confidence="low",
             filters_applied=self._serialize_filters(filters),
         )
-    
+
     def _serialize_filters(self, filters: Optional[SearchFilters]) -> Dict[str, Any]:
         """Serialize filters for response."""
         if not filters:
