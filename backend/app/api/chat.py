@@ -1,6 +1,4 @@
-"""
-Chat API endpoints for RAG-based question answering.
-"""
+import logging
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,6 +11,7 @@ from app.services.rag.embedding_provider import OpenAIEmbeddingProvider
 from app.settings import settings
 
 router = APIRouter(prefix="/chat", tags=["chat"])
+logger = logging.getLogger(__name__)
 
 
 def get_chat_service() -> ChatService:
@@ -89,4 +88,5 @@ async def chat(
         )
     
     except Exception as e:
+        logger.error(f"Chat error: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
