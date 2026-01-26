@@ -145,8 +145,8 @@ export default function ArticleChat({ isOpen, onClose }: ArticleChatProps) {
           >
             <div
               className={`max-w-[80%] rounded-lg px-4 py-2 ${message.role === 'user'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-900'
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-100 text-gray-900'
                 }`}
             >
               <div className="text-sm whitespace-pre-wrap">
@@ -208,16 +208,16 @@ export default function ArticleChat({ isOpen, onClose }: ArticleChatProps) {
           </div>
         )}
 
-        {/* Suggested Questions */}
-        {messages.length <= 1 && !isLoading && (
-          <div className="space-y-2 pt-2 border-t border-gray-100 italic">
-            <p className="text-xs text-gray-500 mb-2 font-medium">Try asking:</p>
+        {/* Suggested Follow-up Questions */}
+        {!isLoading && messages.length > 0 && messages[messages.length - 1].role === 'assistant' && (
+          <div className="space-y-2 pt-2 border-t border-gray-100">
+            <p className="text-[10px] text-gray-400 mb-1 font-medium uppercase tracking-wider">Suggested Follow-ups:</p>
             <div className="flex flex-wrap gap-2">
               {SUGGESTED_QUESTIONS.map((q, i) => (
                 <button
                   key={i}
                   onClick={() => handleSuggestedQuestion(q)}
-                  className="text-xs bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full hover:bg-blue-100 transition-colors text-left"
+                  className="text-xs bg-white border border-blue-100 text-blue-600 px-3 py-1.5 rounded-full hover:bg-blue-50 hover:border-blue-200 transition-all text-left shadow-sm"
                 >
                   {q}
                 </button>
