@@ -13,6 +13,14 @@ interface ArticleChatProps {
   onClose: () => void
 }
 
+const SUGGESTED_QUESTIONS = [
+  "What is the current state of UK's energy transition?",
+  "Latest renewable energy news in Germany",
+  "USA offshore wind developments",
+  "What are the major clean energy policies in China?",
+  "Tell me about grid modernization in India",
+]
+
 export default function ArticleChat({ isOpen, onClose }: ArticleChatProps) {
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -92,6 +100,21 @@ export default function ArticleChat({ isOpen, onClose }: ArticleChatProps) {
     }
   }
 
+  const handleSuggestedQuestion = (question: string) => {
+    setInput(question)
+    // We can't directly call handleSubmit here because it takes an event, 
+    // but we can trigger it or just use the same logic. 
+    // Simplified: set input and let user send, or create a direct send function.
+    // For now, let's make it auto-send.
+    const fakeEvent = { preventDefault: () => { } } as React.FormEvent
+    setInput(question)
+    // Using setTimeout to ensure state is updated before submit logic (basic React state tip)
+    setTimeout(() => {
+      const form = document.getElementById('chat-form') as HTMLFormElement
+      if (form) form.requestSubmit()
+    }, 0)
+  }
+
   if (!isOpen) return null
 
   return (
@@ -121,11 +144,10 @@ export default function ArticleChat({ isOpen, onClose }: ArticleChatProps) {
             className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
           >
             <div
-              className={`max-w-[80%] rounded-lg px-4 py-2 ${
-                message.role === 'user'
+              className={`max-w-[80%] rounded-lg px-4 py-2 ${message.role === 'user'
                   ? 'bg-blue-600 text-white'
                   : 'bg-gray-100 text-gray-900'
-              }`}
+                }`}
             >
               <div className="text-sm whitespace-pre-wrap">
                 {message.content.split('\n').map((line, i) => {
@@ -167,9 +189,8 @@ export default function ArticleChat({ isOpen, onClose }: ArticleChatProps) {
                   )
                 })}
               </div>
-              <p className={`text-xs mt-1 ${
-                message.role === 'user' ? 'text-blue-100' : 'text-gray-500'
-              }`}>
+              <p className={`text-xs mt-1 ${message.role === 'user' ? 'text-blue-100' : 'text-gray-500'
+                }`}>
                 {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </p>
             </div>
@@ -186,11 +207,29 @@ export default function ArticleChat({ isOpen, onClose }: ArticleChatProps) {
             </div>
           </div>
         )}
+
+        {/* Suggested Questions */}
+        {messages.length <= 1 && !isLoading && (
+          <div className="space-y-2 pt-2 border-t border-gray-100 italic">
+            <p className="text-xs text-gray-500 mb-2 font-medium">Try asking:</p>
+            <div className="flex flex-wrap gap-2">
+              {SUGGESTED_QUESTIONS.map((q, i) => (
+                <button
+                  key={i}
+                  onClick={() => handleSuggestedQuestion(q)}
+                  className="text-xs bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full hover:bg-blue-100 transition-colors text-left"
+                >
+                  {q}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         <div ref={messagesEndRef} />
       </div>
 
       {/* Input */}
-      <form onSubmit={handleSubmit} className="p-4 border-t border-gray-200">
+      <form id="chat-form" onSubmit={handleSubmit} className="p-4 border-t border-gray-200">
         <div className="flex gap-2">
           <input
             type="text"

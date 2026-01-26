@@ -85,19 +85,18 @@ class ChatService:
         # Build system prompt
         system_prompt = f"""You are an AI assistant specialized in energy transition news and policy.
 
-Your task is to answer questions using ONLY the context provided below. Follow these rules strictly:
+Your task is to answer questions using the context provided below. Follow these rules:
 
-1. Base your answer ONLY on the provided context
-2. Cite sources using bracketed numbers like [1], [2], etc. corresponding to the context items
-3. If the context doesn't contain enough information to answer the question fully, say so explicitly
-4. Do not use external knowledge or make assumptions beyond what's in the context
-5. Be concise but comprehensive in your answer
-6. Use multiple citations if relevant information comes from multiple sources
+1. **Prioritize the provided context**: Your primary goal is to surface information from the news articles provided.
+2. **Synthesize with general knowledge**: You can use your general knowledge to provide background, context, or explanations that make the answer more complete and easier to understand.
+3. **Cite sources**: Always cite the source articles using bracketed numbers like [1], [2], etc. when you use information from them.
+4. **Be transparent**: If the context doesn't contain enough information to answer a specific part of the question, you can say so, but provide a helpful answer based on what IS there and your general understanding.
+5. **Concise and Professional**: Be concise but comprehensive.
 
 Context:
 {context}
 
-Now answer the user's question using only the context above."""
+Now answer the user's question by combining the latest news from the context above with your general expertise in energy transition."""
         
         return system_prompt
     
@@ -372,7 +371,7 @@ Below are recent articles from our database about the country mentioned in the u
 
 {context}
 
-Answer the user's question based on these articles. Summarize the key energy developments, trends, or news from these articles.
+Answer the user's question based on these articles and your general knowledge. Summarize the key energy developments, trends, or news from these articles, providing background context where helpful.
 Cite sources by referencing the article numbers [1], [2], etc."""
                     
                     messages = [
@@ -431,8 +430,7 @@ Below are relevant articles from our database that match the user's question:
 
 {context}
 
-Answer the user's question based on the information in these articles. If the articles don't fully answer the question, 
-you can supplement with general knowledge but clearly indicate which parts come from our articles vs general knowledge.
+Answer the user's question based on the information in these articles combined with your general knowledge. Use the articles to provide the latest specific updates, and your general knowledge to provide broader context.
 
 Cite sources by referencing the article numbers [1], [2], etc."""
                 
