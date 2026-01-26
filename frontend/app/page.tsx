@@ -131,13 +131,14 @@ export default function Dashboard() {
                   {brief.articles.slice(0, 5).map((article: any) => (
                     <div key={article.id} className="relative h-24 rounded-lg overflow-hidden group">
                       <img
-                        src={article.image_url || '/source-logos/eia.jpg'}
+                        src={article.image_url || (article.source_name === 'NESO' ? '/source-logos/neso.png' : '/source-logos/eia.jpg')}
                         alt={article.title}
                         className="w-full h-full object-cover transition-transform group-hover:scale-110"
                         onError={(e) => {
                           const target = e.target as HTMLImageElement
-                          if (target.src !== window.location.origin + '/source-logos/eia.jpg') {
-                            target.src = '/source-logos/eia.jpg'
+                          const fallback = article.source_name === 'NESO' ? '/source-logos/neso.png' : '/source-logos/eia.jpg'
+                          if (target.src !== window.location.origin + fallback) {
+                            target.src = fallback
                           }
                         }}
                       />
@@ -177,12 +178,12 @@ export default function Dashboard() {
                           title={article.source_name}
                         >
                           <img
-                            src={article.image_url || '/source-logos/eia.jpg'}
+                            src={article.image_url || (article.source_name === 'NESO' ? '/source-logos/neso.png' : '/source-logos/eia.jpg')}
                             alt=""
                             className="w-full h-full object-cover"
                             onError={(e) => {
                               const target = e.target as HTMLImageElement
-                              target.src = '/source-logos/eia.jpg'
+                              target.src = article.source_name === 'NESO' ? '/source-logos/neso.png' : '/source-logos/eia.jpg'
                             }}
                           />
                         </div>
@@ -213,13 +214,14 @@ export default function Dashboard() {
               >
                 <div className="h-64 bg-gradient-to-br from-gray-100 to-gray-200 relative overflow-hidden">
                   <img
-                    src={featuredStory.image_url || '/source-logos/eia.jpg'}
+                    src={featuredStory.image_url || (featuredStory.source_name === 'NESO' ? '/source-logos/neso.png' : '/source-logos/eia.jpg')}
                     alt={featuredStory.title}
                     className="w-full h-full object-cover"
                     onError={(e) => {
                       const target = e.target as HTMLImageElement
-                      if (target.src !== window.location.origin + '/source-logos/eia.jpg') {
-                        target.src = '/source-logos/eia.jpg'
+                      const fallback = featuredStory.source_name === 'NESO' ? '/source-logos/neso.png' : '/source-logos/eia.jpg'
+                      if (target.src !== window.location.origin + fallback) {
+                        target.src = fallback
                       }
                     }}
                   />

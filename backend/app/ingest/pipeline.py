@@ -233,6 +233,16 @@ async def run_full_ingestion_pipeline() -> Dict[str, Any]:
                             
                             # Use scraper-provided image URL if available, otherwise use extracted one
                             final_image_url = parsed_article.get("image_url") or extracted_image_url
+                            
+                            # Fallback to source logo if still missing for specific sources
+                            if not final_image_url:
+                                if source.name == "NESO":
+                                    final_image_url = "/source-logos/neso.png"
+                                    logger.info(f"  🖼️  Using NESO logo as fallback")
+                                elif 'eia.gov' in article_url.lower():
+                                    final_image_url = "/source-logos/eia.jpg"
+                                    logger.info(f"  🖼️  Using EIA logo as fallback")
+                            
                             if final_image_url:
                                 if not article.article_metadata:
                                     article.article_metadata = {}

@@ -243,13 +243,19 @@ class IngestionService:
                                         article.article_metadata = {}
                                     article.article_metadata['image_url'] = image_url
                                 elif not image_url:
-                                    # Use EIA logo as fallback for EIA articles
+                                    # Fallback logos for specific sources
+                                    fallback_logo = None
                                     if 'eia.gov' in source.rss_url.lower():
-                                        eia_logo = "/source-logos/eia.jpg"
+                                        fallback_logo = "/source-logos/eia.jpg"
                                         print(f"          🖼️  Using EIA logo as fallback")
+                                    elif source.name == "NESO" or 'neso.energy' in source.rss_url.lower():
+                                        fallback_logo = "/source-logos/neso.png"
+                                        print(f"          🖼️  Using NESO logo as fallback")
+                                    
+                                    if fallback_logo:
                                         if article.article_metadata is None:
                                             article.article_metadata = {}
-                                        article.article_metadata['image_url'] = eia_logo
+                                        article.article_metadata['image_url'] = fallback_logo
                                 
                                 # Tag countries
                                 country_codes, country_metadata = self.country_tagger.tag_article(

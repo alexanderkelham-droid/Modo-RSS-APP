@@ -10,7 +10,7 @@ export default function CountryBriefsPage() {
   const [selectedCountry, setSelectedCountry] = useState('US')
   const [loadingBrief, setLoadingBrief] = useState(false)
   const [brief, setBrief] = useState<any>(null)
-  
+
   const { data: stories } = useSWR(
     `${process.env.NEXT_PUBLIC_API_URL}/articles/top-stories?country=${selectedCountry}&days=7&limit=20`,
     fetcher
@@ -79,7 +79,7 @@ export default function CountryBriefsPage() {
               {loadingBrief ? 'Generating...' : 'Generate Brief'}
             </button>
           </div>
-          
+
           {loadingBrief ? (
             <div className="text-center py-8">
               <div className="animate-pulse text-gray-500">
@@ -107,7 +107,7 @@ export default function CountryBriefsPage() {
           <p className="text-sm text-gray-600 mb-4">
             Showing {stories?.items?.length || 0} articles
           </p>
-          
+
           <div className="grid grid-cols-3 gap-6">
             {stories?.items?.map((article: any) => (
               <div
@@ -117,34 +117,35 @@ export default function CountryBriefsPage() {
                 {/* Image */}
                 <div className="relative h-48 bg-gradient-to-br from-gray-100 to-gray-200">
                   <img
-                    src={article.image_url || '/source-logos/eia.jpg'}
+                    src={article.image_url || (article.source_name === 'NESO' ? '/source-logos/neso.png' : '/source-logos/eia.jpg')}
                     alt={article.title}
                     className="w-full h-full object-cover"
                     onError={(e) => {
                       const target = e.target as HTMLImageElement
-                      if (target.src !== window.location.origin + '/source-logos/eia.jpg') {
-                        target.src = '/source-logos/eia.jpg'
+                      const fallback = article.source_name === 'NESO' ? '/source-logos/neso.png' : '/source-logos/eia.jpg'
+                      if (target.src !== window.location.origin + fallback) {
+                        target.src = fallback
                       }
                     }}
                   />
                 </div>
-                
+
                 {/* Content */}
                 <div className="p-5">
                   <h3 className="text-lg font-bold text-gray-900 mb-3 line-clamp-2 leading-tight">
                     {article.title}
                   </h3>
-                  
+
                   <div className="flex items-center gap-2 text-xs text-gray-500 mb-3">
                     <span className="font-medium">{article.source_name}</span>
                     <span>•</span>
                     <span>{formatTimeAgo(article.published_at)}</span>
                   </div>
-                  
+
                   <p className="text-sm text-gray-600 line-clamp-3 mb-4 leading-relaxed">
                     {article.summary || article.raw_summary || 'No summary available'}
                   </p>
-                  
+
                   {/* Tags */}
                   <div className="flex gap-2 flex-wrap mb-4">
                     {article.country_codes?.slice(0, 2).map((code: string) => (
@@ -164,7 +165,7 @@ export default function CountryBriefsPage() {
                       </span>
                     ))}
                   </div>
-                  
+
                   {/* Read More */}
                   <a
                     href={article.url}
