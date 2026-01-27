@@ -237,24 +237,22 @@ Now answer the user's question by combining the latest news from the context abo
         self,
         db: AsyncSession,
         country_code: str,
+        filters: Optional[SearchFilters] = None,
         limit: int = 10,
     ) -> List[Article]:
         """
-        Search for articles tagged with a specific country.
-        
-        Args:
-            db: Database session
-            country_code: ISO country code (e.g., 'DE')
-            limit: Maximum number of articles to return
-            
-        Returns:
-            List of articles tagged with the country
+        Search for articles tagged with a specific country and optional topics.
         """
-        from sqlalchemy.dialects.postgresql import array
-        
         query = select(Article).where(
             country_code == any_(Article.country_codes)
-        ).order_by(Article.published_at.desc()).limit(limit)
+        )
+        
+        # Add topic filters if present
+        if filters and filters.topics:
+            from sqlalchemy.dialects.postgresql import array
+            query = query.where(Article.topic_tags.op("&&")(filters.topics))
+            
+        query = query.order_by(Article.published_at.desc()).limit(limit)
         
         result = await db.execute(query)
         return result.scalars().all()
@@ -263,18 +261,11 @@ Now answer the user's question by combining the latest news from the context abo
         self,
         db: AsyncSession,
         question: str,
+        filters: Optional[SearchFilters] = None,
         limit: int = 5,
     ) -> List[Article]:
         """
-        Search for articles by keyword in title or content.
-        
-        Args:
-            db: Database session
-            question: User question to extract keywords from
-            limit: Maximum number of articles to return
-            
-        Returns:
-            List of matching articles
+        Search for articles by keyword in title or content, respecting filters.
         """
         # Clean up question and extract meaningful words
         question_lower = question.lower()
@@ -290,34 +281,32 @@ Now answer the user's question by combining the latest news from the context abo
         if not keywords:
             return []
         
-        # Build multi-word phrases (consecutive keywords)
         phrases = []
         if len(keywords) >= 2:
-            # Try full phrase of all keywords
             phrases.append(' '.join(keywords))
-            # Try pairs of keywords
             for i in range(len(keywords) - 1):
                 phrases.append(f"{keywords[i]} {keywords[i+1]}")
         
-        # Search: prioritize phrases over individual keywords
         conditions = []
-        
-        # First add phrase searches (higher priority)
         for phrase in phrases:
             conditions.append(Article.title.ilike(f'%{phrase}%'))
         
-        # Then add individual keyword searches (only for longer/specific words)
         for keyword in keywords:
-            if len(keyword) > 5:  # Only search for longer keywords individually
+            if len(keyword) > 5:
                 conditions.append(Article.title.ilike(f'%{keyword}%'))
         
         if not conditions:
             return []
         
-        # Use CASE to order by best match (phrase matches first)
         query = select(Article).where(or_(*conditions))
         
-        # Add ordering to prioritize phrase matches
+        # Apply strict country/topic filters to keyword search
+        if filters:
+            if filters.countries:
+                query = query.where(Article.country_codes.op("&&")(filters.countries))
+            if filters.topics:
+                query = query.where(Article.topic_tags.op("&&")(filters.topics))
+        
         from sqlalchemy import case
         order_cases = []
         for i, phrase in enumerate(phrases):
@@ -325,7 +314,7 @@ Now answer the user's question by combining the latest news from the context abo
         
         if order_cases:
             query = query.order_by(
-                case(*order_cases, else_=999)  # Phrase matches get lower numbers (higher priority)
+                case(*order_cases, else_=999)
             )
         
         query = query.limit(limit)
@@ -377,14 +366,16 @@ Now answer the user's question by combining the latest news from the context abo
             # If we had country filters, try broader article-level search as first fallback
             if filters.countries:
                 for country_code in filters.countries:
-                    country_articles = await self._search_articles_by_country(db, country_code, limit=10)
+                    country_articles = await self._search_articles_by_country(
+                        db, country_code, filters=filters, limit=10
+                    )
                     if country_articles:
                         return await self._generate_response_from_articles(
                             question, country_articles, "country", filters
                         )
             
-            # Try keyword search as second fallback
-            keyword_articles = await self._keyword_search_articles(db, question)
+            # Try keyword search as second fallback (STRICTLY within filters)
+            keyword_articles = await self._keyword_search_articles(db, question, filters=filters)
             if keyword_articles:
                 return await self._generate_response_from_articles(
                     question, keyword_articles, "keyword", filters

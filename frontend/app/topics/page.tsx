@@ -115,8 +115,8 @@ export default function TopicsPage() {
                 key={topic.id}
                 onClick={() => setSelectedTopic(topic.id)}
                 className={`px-6 py-2.5 rounded-lg text-sm font-medium transition-all ${selectedTopic === topic.id
-                    ? 'bg-gray-900 text-white shadow-md'
-                    : 'bg-white text-gray-700 border border-gray-300 hover:border-gray-400 hover:shadow-sm'
+                  ? 'bg-gray-900 text-white shadow-md'
+                  : 'bg-white text-gray-700 border border-gray-300 hover:border-gray-400 hover:shadow-sm'
                   }`}
               >
                 {topic.label}
@@ -253,7 +253,11 @@ export default function TopicsPage() {
       </button>
 
       {/* Chat Component */}
-      <ArticleChat isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
+      <ArticleChat
+        isOpen={isChatOpen}
+        onClose={() => setIsChatOpen(false)}
+        contextCountry={selectedCountry}
+      />
     </div>
   )
 }
