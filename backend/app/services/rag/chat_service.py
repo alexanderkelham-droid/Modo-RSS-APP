@@ -13,6 +13,7 @@ from app.services.rag.vector_search import VectorSearchService, SearchFilters, S
 from app.services.rag.chat_provider import ChatProvider
 from app.services.rag.embedding_provider import EmbeddingProvider
 from app.services.nlp.topic_data import TOPIC_KEYWORDS
+from app.services.nlp.country_data import detect_countries_in_text
 
 
 @dataclass
@@ -159,60 +160,9 @@ Now answer the user's question by combining the latest news from the context abo
     def _extract_country_from_question(self, question: str) -> Optional[str]:
         """
         Extract country name from question and convert to ISO code.
-        
-        Args:
-            question: User question
-            
-        Returns:
-            ISO country code (e.g., 'DE' for Germany) or None
         """
-        question_lower = question.lower()
-        
-        # Map of country names to ISO codes (common energy countries)
-        country_map = {
-            'germany': 'DE', 'german': 'DE',
-            'france': 'FR', 'french': 'FR',
-            'uk': 'GB', 'united kingdom': 'GB', 'britain': 'GB', 'british': 'GB',
-            'spain': 'ES', 'spanish': 'ES',
-            'italy': 'IT', 'italian': 'IT',
-            'netherlands': 'NL', 'dutch': 'NL',
-            'poland': 'PL', 'polish': 'PL',
-            'usa': 'US', 'united states': 'US', 'america': 'US', 'american': 'US',
-            'china': 'CN', 'chinese': 'CN',
-            'india': 'IN', 'indian': 'IN',
-            'japan': 'JP', 'japanese': 'JP',
-            'australia': 'AU', 'australian': 'AU',
-            'canada': 'CA', 'canadian': 'CA',
-            'brazil': 'BR', 'brazilian': 'BR',
-            'mexico': 'MX', 'mexican': 'MX',
-            'south africa': 'ZA',
-            'saudi arabia': 'SA',
-            'uae': 'AE', 'emirates': 'AE',
-            'norway': 'NO', 'norwegian': 'NO',
-            'sweden': 'SE', 'swedish': 'SE',
-            'denmark': 'DK', 'danish': 'DK',
-            'finland': 'FI', 'finnish': 'FI',
-            'belgium': 'BE', 'belgian': 'BE',
-            'austria': 'AT', 'austrian': 'AT',
-            'switzerland': 'CH', 'swiss': 'CH',
-            'portugal': 'PT', 'portuguese': 'PT',
-            'greece': 'GR', 'greek': 'GR',
-            'turkey': 'TR', 'turkish': 'TR',
-            'south korea': 'KR', 'korea': 'KR', 'korean': 'KR',
-            'vietnam': 'VN', 'vietnamese': 'VN',
-            'indonesia': 'ID', 'indonesian': 'ID',
-            'thailand': 'TH', 'thai': 'TH',
-            'philippines': 'PH', 'philippine': 'PH',
-            'singapore': 'SG',
-            'malaysia': 'MY', 'malaysian': 'MY',
-        }
-        
-        # Check for country mentions
-        for country_name, iso_code in country_map.items():
-            if country_name in question_lower:
-                return iso_code
-        
-        return None
+        detected = detect_countries_in_text(question)
+        return detected[0] if detected else None
 
     def _extract_topics_from_question(self, question: str) -> List[str]:
         """
@@ -339,7 +289,9 @@ Now answer the user's question by combining the latest news from the context abo
         if not filters:
             filters = SearchFilters()
             
-        if extracted_country and not filters.countries:
+        if extracted_country:
+            # If the question mentions a country, STRICTLY use that country filter
+            # even if the dashboard context said something else.
             filters.countries = [extracted_country]
             
         if extracted_topics:

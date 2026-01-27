@@ -285,6 +285,35 @@ REGION_KEYWORDS: Dict[str, List[str]] = {
 }
 
 
+def detect_countries_in_text(text: str) -> List[str]:
+    """
+    Detect country codes in text based on keyword mentions.
+    
+    Args:
+        text: Input text (e.g., user question)
+        
+    Returns:
+        List of ISO-3166 alpha-2 codes detected.
+    """
+    if not text:
+        return []
+        
+    text_lower = text.lower()
+    detected = set()
+    
+    # Sort codes to ensure consistent behavior if needed
+    for code, keywords in COUNTRY_KEYWORDS.items():
+        for keyword in keywords:
+            # Match word boundaries to avoid catching "India" in "Indiana"
+            import re
+            pattern = r'\b' + re.escape(keyword.lower()) + r'\b'
+            if re.search(pattern, text_lower):
+                detected.add(code)
+                break  # Found this country, move to next code
+                
+    return sorted(list(detected))
+
+
 def get_all_keywords() -> Set[str]:
     """Get set of all country keywords for validation."""
     all_keywords = set()
