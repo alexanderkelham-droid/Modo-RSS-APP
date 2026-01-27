@@ -1,0 +1,55 @@
+graph TD
+    subgraph Frontend (Next.js)
+        A[User Browser]
+        B[Topics Page / Feed Manager]
+        C[Country Briefs / Article Chat]
+        A --> B
+        A --> C
+    end
+
+    subgraph API Layer (FastAPI)
+        D[API Endpoints]
+        D1[/articles]
+        D2[/sources]
+        D3[/ingestion/run]
+        D4[/country-briefs]
+        D5[/chat]
+        D --> D1
+        D --> D2
+        D --> D3
+        D --> D4
+        D --> D5
+    end
+
+    subgraph Backend Services
+        E[Ingestion Pipeline]
+        F[Scraper Registry]
+        G[Async DB (SQLAlchemy)]
+        H[RAG/Chat Service]
+        I[Static Assets (Logos)]
+        E --> F
+        E --> G
+        H --> G
+        D3 --> E
+        D2 --> G
+        D1 --> G
+        D4 --> G
+        D5 --> H
+        B --> D1
+        B --> D2
+        B --> D3
+        C --> D4
+        C --> D5
+        B --> I
+        C --> I
+    end
+
+    subgraph Database
+        J[(Postgres)]
+        G --> J
+    end
+
+    subgraph External Sources
+        K[News Websites / APIs]
+        F --> K
+    end

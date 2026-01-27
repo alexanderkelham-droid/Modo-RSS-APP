@@ -1,0 +1,15 @@
+Step,Date,Action,Decision/Reasoning,Outcome
+1,2025-12-XX,Project Planning,Chose FastAPI backend and Next.js frontend for modularity and async performance,Modern stack with async support and easy extensibility
+2,2025-12-XX,Database Design,Created SQLAlchemy models for Source, Article, IngestionRun,Supports flexible source management and article tracking
+3,2025-12-XX,Backend Setup,Set up FastAPI app, async SQLAlchemy, and DB session management,Foundation for scalable async ingestion
+4,2025-12-XX,Frontend Setup,Initialized Next.js app with SWR and Tailwind CSS,Modern, responsive UI with efficient data fetching
+5,2026-01-XX,Modular Scraper Registry,Implemented registry pattern for scrapers,Allows easy addition of new news sources
+6,2026-01-XX,Ingestion Pipeline,Developed async ingestion pipeline with error handling,Concurrent scraping and robust to failures
+7,2026-01-XX,Source Management,Added API and frontend for enabling/disabling sources,Dynamic control over which sources are ingested
+8,2026-01-XX,Frontend Filtering,Added topic/country/source filtering and exclusion logic,Customizable article display and curation
+9,2026-01-XX,Source Logo Handling,Added static logo fallback and dynamic logo support,Improved UX for new/missing sources
+10,2026-01-XX,Adding New Sources,Scripted DB seeding and scraper registration,Repeatable onboarding for new feeds
+11,2026-01-XX,Debugging & Workarounds,Handled HTML changes, 403 errors, and pipeline failures,Ensured resilience to source/site changes
+12,2026-01-XX,Frontend/Backend Decoupling,Allowed frontend to filter/exclude sources independently,Enabled rapid UI changes without backend redeploy
+13,2026-01-XX,Deployment,Deployed to Railway with environment config,Cloud-based, always-on ingestion and API
+14,2026-01-XX,Documentation & Interview Prep,Created technical overviews and process logs,Clear record of decisions and architecture
